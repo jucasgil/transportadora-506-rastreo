@@ -1,13 +1,9 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/index.js", "use": "@vercel/node" }
+    { "src": "api.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/rastreo.html", "dest": "/public/rastreo.html" },
-    { "src": "/rastreo/(.*)", "dest": "/public/rastreo.html" },
-    { "src": "/(.*\\..*)", "dest": "/public/$1" },
-    { "src": "/", "dest": "/public/rastreo.html" }
+    { "src": "/(.*)", "dest": "/api.js" }
   ]
 }
