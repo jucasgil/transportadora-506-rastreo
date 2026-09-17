@@ -30,10 +30,10 @@ const CACHE_DURATION_MINUTES = 5;
 
 function createVelocityGoClient() {
   const client = axios.create({
-    baseURL: 'https://api.velocitygo.co/v1',
+    baseURL: process.env.VELOCITYGO_API_URL || 'https://api.velocity-x.co',
     timeout: 10000,
     headers: {
-      'Authorization': `Bearer ${VELOCITYGO_TOKEN}`,
+      'X-Velocity-Access-Token': VELOCITYGO_TOKEN,
       'Content-Type': 'application/json'
     }
   });
@@ -99,41 +99,39 @@ async function saveShipmentToCache(trackingId, shipmentData) {
 }
 
 function transformVelocityGoResponse(data, trackingId) {
-  const statusMap = {
-    'pending': 'Pendiente',
-    'confirmed': 'Confirmado',
-    'in_transit': 'En tránsito',
-    'out_for_delivery': 'Saliendo para entrega',
-    'delivered': 'Entregado',
-    'failed': 'Fallo en entrega',
-    'cancelled': 'Cancelado',
-    'returned': 'Retornado'
-  };
+  // Velocity devuelve el estado como objeto { id, name, color }, no como string plano
+  const statusObj = data.order_status || {};
+  const statusName = statusObj.name || data.status;
+  const shipping = data.shipping_information || data.location || {};
+  const driver = data.driver || {};
+  const provider = data.delivery_provider || {};
 
   return {
     tracking_id: trackingId,
     velocitygo_order_id: data.id || data.order_id,
-    status: statusMap[data.status?.toLowerCase()] || data.status || 'Desconocido',
-    status_code: data.status,
+    order_number: data.order_number,
+    status: statusName || 'Desconocido',
+    status_code: statusObj.id ?? data.status,
+    status_color: statusObj.color,
     location: {
-      latitude: data.location?.latitude || data.current_latitude,
-      longitude: data.location?.longitude || data.current_longitude,
-      address: data.location?.address || data.delivery_address,
-      city: data.location?.city,
+      latitude: shipping.latitude || shipping.lat,
+      longitude: shipping.longitude || shipping.lng,
+      address: shipping.address || data.delivery_address,
+      city: shipping.city,
       country: 'Colombia'
     },
-    estimated_delivery: data.estimated_delivery_date || data.estimated_delivery,
-    current_carrier: data.carrier_name || data.carrier,
-    driver_name: data.driver_name || data.driver,
-    driver_phone: data.driver_phone,
-    events: Array.isArray(data.events) ? data.events.map(e => ({
+    estimated_delivery: data.delivery_date || data.estimated_delivery_date || data.estimated_delivery,
+    current_carrier: provider.name || data.carrier_name || data.carrier,
+    driver_name: driver.full_name || driver.name || data.driver_name,
+    driver_phone: driver.phone || data.driver_phone,
+    events: Array.isArray(data.history) ? data.history.map(e => ({
       timestamp: e.timestamp || e.created_at || e.date,
-      status: e.status,
+      status: e.status || e.name,
       description: e.description || e.message,
       location: e.location
     })) : [],
-    recipient_name: data.recipient_name || data.receiver_name,
-    recipient_phone: data.recipient_phone || data.receiver_phone,
+    recipient_name: data.recipient_name || data.receiver_name || data.customer_name,
+    recipient_phone: data.recipient_phone || data.receiver_phone || data.customer_phone,
     updated_at: new Date().toISOString()
   };
 }
@@ -168,9 +166,13 @@ router.get('/:trackingId', async (req, res) => {
     // Consultar VelocityGo
     console.log(`[API CALL] Consultando: ${trackingId}`);
     const client = createVelocityGoClient();
-    const response = await client.get(`/orders/${trackingId}`);
-    
-    const trackingData = transformVelocityGoResponse(response.data, trackingId);
+    const orderData = await fetchVelocityGoOrder(client, trackingId);
+
+    if (!orderData) {
+      return res.status(404).json({ error: 'not_found', message: 'Pedido no encontrado' });
+    }
+
+    const trackingData = transformVelocityGoResponse(orderData, trackingId);
     await saveShipmentToCache(trackingId, trackingData);
 
     res.json({ ...trackingData, source: 'live', timestamp: new Date().toISOString() });
@@ -184,6 +186,28 @@ router.get('/:trackingId', async (req, res) => {
     res.status(500).json({ error: 'tracking_error', message: 'Error consultando pedido' });
   }
 });
+
+// ============================================================================
+// BUSCAR PEDIDO EN VELOCITYGO
+// {id} en GET /orders/{id} es el ID interno de Velocity, no el order_number
+// ni el tracking_number que el cliente escribe. Por eso primero se intenta
+// el lookup directo (por si el valor SÍ es el id interno) y si falla, se
+// busca por order_number con la DSL de filtros que sí soporta ese campo.
+// ============================================================================
+
+async function fetchVelocityGoOrder(client, trackingId) {
+  try {
+    const direct = await client.get(`/orders/${trackingId}`);
+    if (direct.data) return direct.data;
+  } catch (err) {
+    if (err.response?.status !== 404) throw err;
+  }
+
+  const filters = JSON.stringify([['order_number', 'LIKE', `%${trackingId}%`]]);
+  const search = await client.get('/orders', { params: { filters, size: 1 } });
+  const results = search.data?.data || search.data?.results || search.data?.items || [];
+  return Array.isArray(results) ? results[0] : null;
+}
 
 // ============================================================================
 // ENDPOINT 2: POST /api/tracking/generate-link
@@ -255,8 +279,11 @@ router.get('/public/:publicTrackingId', async (req, res) => {
       trackingData = cached;
     } else {
       const client = createVelocityGoClient();
-      const response = await client.get(`/orders/${trackingLink.velocitygo_order_id}`);
-      trackingData = transformVelocityGoResponse(response.data, trackingLink.velocitygo_order_id);
+      const orderData = await fetchVelocityGoOrder(client, trackingLink.velocitygo_order_id);
+      if (!orderData) {
+        return res.status(404).json({ error: 'not_found', message: 'Pedido no encontrado' });
+      }
+      trackingData = transformVelocityGoResponse(orderData, trackingLink.velocitygo_order_id);
       await saveShipmentToCache(trackingLink.velocitygo_order_id, trackingData);
     }
 
