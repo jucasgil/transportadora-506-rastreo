@@ -98,19 +98,47 @@ async function saveShipmentToCache(trackingId, shipmentData) {
   }
 }
 
+// ============================================================================
+// TRADUCCIÓN DE ESTADOS
+// Velocity devuelve sus propios nombres de estado internos (p.ej. "Asignar
+// piloto"), pensados para el operador, no para el cliente final. Acá se
+// traducen a un texto público más amigable antes de mostrarlo en la página
+// de rastreo. La llave debe coincidir EXACTO (mismas mayúsculas/acentos)
+// con el nombre que envía Velocity en order_status.name / history[].status
+// — si un estado no está en el mapa, se muestra tal cual llega.
+// ============================================================================
+const STATUS_LABELS = {
+  'Asignar piloto': 'En proceso',
+  'Pendiente': 'Pendiente',
+  'Confirmado': 'Confirmado',
+  'En ruta': 'En camino',
+  'En tránsito': 'En camino',
+  'Entregado': 'Entregado',
+  'Fallido': 'Novedad en la entrega',
+  'Cancelado': 'Cancelado',
+  'Devuelto': 'Devuelto'
+  // Agrega aquí más pares "Nombre exacto en Velocity": "Texto para mostrar"
+};
+
+function publicStatusLabel(rawName) {
+  if (!rawName) return 'Desconocido';
+  return STATUS_LABELS[rawName] || rawName;
+}
+
 function transformVelocityGoResponse(data, trackingId) {
   // Velocity devuelve el estado como objeto { id, name, color }, no como string plano
   const statusObj = data.order_status || {};
   const statusName = statusObj.name || data.status;
   const shipping = data.shipping_information || data.location || {};
-  const driver = data.driver || {};
+  const customer = data.customer || {};
   const provider = data.delivery_provider || {};
 
   return {
     tracking_id: trackingId,
     velocitygo_order_id: data.id || data.order_id,
     order_number: data.order_number,
-    status: statusName || 'Desconocido',
+    status: publicStatusLabel(statusName),
+    status_raw: statusName || 'Desconocido',
     status_code: statusObj.id ?? data.status,
     status_color: statusObj.color,
     location: {
@@ -122,16 +150,17 @@ function transformVelocityGoResponse(data, trackingId) {
     },
     estimated_delivery: data.delivery_date || data.estimated_delivery_date || data.estimated_delivery,
     current_carrier: provider.name || data.carrier_name || data.carrier,
-    driver_name: driver.full_name || driver.name || data.driver_name,
-    driver_phone: driver.phone || data.driver_phone,
     events: Array.isArray(data.history) ? data.history.map(e => ({
       timestamp: e.timestamp || e.created_at || e.date,
-      status: e.status || e.name,
+      status: publicStatusLabel(e.status || e.name),
       description: e.description || e.message,
       location: e.location
     })) : [],
-    recipient_name: data.recipient_name || data.receiver_name || data.customer_name,
-    recipient_phone: data.recipient_phone || data.receiver_phone || data.customer_phone,
+    // El destinatario (a quién se le entrega) vive en shipping_information;
+    // customer es quien hizo/pagó el pedido. Se usa shipping primero y
+    // customer como respaldo si algún campo viene vacío.
+    recipient_name: shipping.full_name || customer.full_name,
+    recipient_phone: shipping.phone_number || shipping.mobile_phone_number || customer.phone_number || customer.mobile_phone_number,
     updated_at: new Date().toISOString()
   };
 }
@@ -171,11 +200,6 @@ router.get('/:trackingId', async (req, res) => {
     if (!orderData) {
       return res.status(404).json({ error: 'not_found', message: 'Pedido no encontrado' });
     }
-
-    // TEMPORAL: para ver la forma real del objeto que devuelve Velocity y
-    // ubicar el campo del número de orden de marketplace/VTEX. Quitar este
-    // log una vez identificado el campo correcto.
-    console.log('[RAW ORDER]', JSON.stringify(orderData));
 
     const trackingData = transformVelocityGoResponse(orderData, trackingId);
     await saveShipmentToCache(trackingId, trackingData);
