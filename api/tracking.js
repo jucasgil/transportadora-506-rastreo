@@ -172,6 +172,11 @@ router.get('/:trackingId', async (req, res) => {
       return res.status(404).json({ error: 'not_found', message: 'Pedido no encontrado' });
     }
 
+    // TEMPORAL: para ver la forma real del objeto que devuelve Velocity y
+    // ubicar el campo del número de orden de marketplace/VTEX. Quitar este
+    // log una vez identificado el campo correcto.
+    console.log('[RAW ORDER]', JSON.stringify(orderData));
+
     const trackingData = transformVelocityGoResponse(orderData, trackingId);
     await saveShipmentToCache(trackingId, trackingData);
 
