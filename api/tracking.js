@@ -221,10 +221,10 @@ async function searchOrderByField(client, field, trackingId) {
 }
 
 // Campos por los que puede llegar el identificador que escribe el cliente:
-// order_number (número propio de Velocity), o el ID de la orden de origen
-// (p.ej. el número de orden de VTEX si Velocity es el fulfillment) bajo
-// alguno de estos posibles nombres de columna.
-const SEARCH_FIELDS = ['order_number', 'external_order_id', 'external_id', 'reference'];
+// order_number (número propio de Velocity), o el "ID de orden de
+// marketplace" que se ve en el panel de Velocity para pedidos que vienen
+// de un canal como VTEX (marketplace_order_id), u otros nombres posibles.
+const SEARCH_FIELDS = ['order_number', 'marketplace_order_id', 'external_order_id', 'external_id', 'reference'];
 
 async function fetchVelocityGoOrder(client, trackingId) {
   try {
@@ -234,9 +234,19 @@ async function fetchVelocityGoOrder(client, trackingId) {
     if (!isNotFoundResponse(err)) throw err;
   }
 
+  // Candidatos a probar: el valor tal cual, y si trae un sufijo tipo "-01"
+  // (típico de VTEX cuando una orden se separa en varios fulfillments),
+  // también la parte antes del guion, por si Velocity la guarda sin sufijo.
+  const candidates = [trackingId];
+  if (trackingId.includes('-')) {
+    candidates.push(trackingId.split('-')[0]);
+  }
+
   for (const field of SEARCH_FIELDS) {
-    const found = await searchOrderByField(client, field, trackingId);
-    if (found) return found;
+    for (const candidate of candidates) {
+      const found = await searchOrderByField(client, field, candidate);
+      if (found) return found;
+    }
   }
   return null;
 }
