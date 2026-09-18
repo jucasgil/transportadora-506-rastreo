@@ -129,6 +129,9 @@ function transformVelocityGoResponse(data, trackingId) {
   // Velocity devuelve el estado como objeto { id, name, color }, no como string plano
   const statusObj = data.order_status || {};
   const statusName = statusObj.name || data.status;
+  // TEMPORAL: para ver el nombre EXACTO (con mayúsculas/espacios) que envía
+  // Velocity y ajustar bien la llave en STATUS_LABELS. Quitar después.
+  console.log('[STATUS RAW]', JSON.stringify(statusName));
   const shipping = data.shipping_information || data.location || {};
   const customer = data.customer || {};
   const provider = data.delivery_provider || {};
