@@ -209,27 +209,42 @@ function isNotFoundResponse(err) {
   return err.response?.status === 500 && msg.includes('record not found');
 }
 
-async function searchOrderByField(client, field, trackingId) {
+function extractOrderList(responseData) {
+  if (Array.isArray(responseData)) return responseData;
+  if (Array.isArray(responseData?.data)) return responseData.data;
+  if (Array.isArray(responseData?.results)) return responseData.results;
+  if (Array.isArray(responseData?.items)) return responseData.items;
+  if (Array.isArray(responseData?.orders)) return responseData.orders;
+  return [];
+}
+
+async function searchOrderByField(client, field, trackingId, operator) {
   try {
-    const filters = JSON.stringify([[field, 'LIKE', `%${trackingId}%`]]);
+    const filters = JSON.stringify([[field, operator, operator === 'LIKE' ? `%${trackingId}%` : trackingId]]);
     const search = await client.get('/orders', { params: { filters, size: 1 } });
-    const results = search.data?.data || search.data?.results || search.data?.items || [];
-    console.log(`[SEARCH ${field}] "${trackingId}" -> ${Array.isArray(results) ? results.length : 0} resultado(s)`);
-    return Array.isArray(results) && results.length ? results[0] : null;
+    const results = extractOrderList(search.data);
+    console.log(`[SEARCH ${field} ${operator}] "${trackingId}" -> ${results.length} resultado(s)`);
+    if (results.length === 0) {
+      // TEMPORAL: para depurar la forma real de la respuesta cuando no hay
+      // resultados, por si el array viene bajo otra llave que no estamos
+      // contemplando en extractOrderList.
+      console.log(`[SEARCH ${field} ${operator}] respuesta cruda:`, JSON.stringify(search.data).slice(0, 500));
+    }
+    return results.length ? results[0] : null;
   } catch (err) {
     // Un campo que no existe en el esquema de Velocity (columna inválida u
     // otro 400/422/500 de la búsqueda) no debe tumbar todo el request: se
     // registra y se sigue probando con el siguiente campo.
-    console.error(`[SEARCH ${field}] error, se omite este campo:`, err.response?.data?.message || err.message);
+    console.error(`[SEARCH ${field} ${operator}] error, se omite:`, err.response?.data?.message || err.message);
     return null;
   }
 }
 
-// Campos por los que puede llegar el identificador que escribe el cliente:
-// order_number (número propio de Velocity), o el "ID de orden de
-// marketplace" que se ve en el panel de Velocity para pedidos que vienen
-// de un canal como VTEX (marketplace_order_id), u otros nombres posibles.
-const SEARCH_FIELDS = ['order_number', 'marketplace_order_id', 'external_order_id', 'external_id', 'reference'];
+// Campos confirmados que existen en el esquema de Velocity: order_number
+// (código propio, ej. "QARHYX") y external_order_id (número de la orden de
+// origen, ej. el pedido de VTEX "1662201085931-01").
+const SEARCH_FIELDS = ['order_number', 'external_order_id'];
+const OPERATORS = ['=', 'LIKE'];
 
 async function fetchVelocityGoOrder(client, trackingId) {
   try {
@@ -249,8 +264,10 @@ async function fetchVelocityGoOrder(client, trackingId) {
 
   for (const field of SEARCH_FIELDS) {
     for (const candidate of candidates) {
-      const found = await searchOrderByField(client, field, candidate);
-      if (found) return found;
+      for (const operator of OPERATORS) {
+        const found = await searchOrderByField(client, field, candidate, operator);
+        if (found) return found;
+      }
     }
   }
   return null;
