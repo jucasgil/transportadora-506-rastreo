@@ -204,6 +204,19 @@ function isNotFoundResponse(err) {
   return err.response?.status === 500 && msg.includes('record not found');
 }
 
+async function searchOrderByField(client, field, trackingId) {
+  const filters = JSON.stringify([[field, 'LIKE', `%${trackingId}%`]]);
+  const search = await client.get('/orders', { params: { filters, size: 1 } });
+  const results = search.data?.data || search.data?.results || search.data?.items || [];
+  console.log(`[SEARCH ${field}] "${trackingId}" -> ${Array.isArray(results) ? results.length : 0} resultado(s)`);
+  return Array.isArray(results) && results.length ? results[0] : null;
+}
+
+// Campos por los que puede llegar el identificador que escribe el cliente:
+// order_number (número propio de Velocity) o external_id (ID de la orden de
+// origen, p.ej. el número de orden de VTEX si Velocity es el fulfillment).
+const SEARCH_FIELDS = ['order_number', 'external_id'];
+
 async function fetchVelocityGoOrder(client, trackingId) {
   try {
     const direct = await client.get(`/orders/${trackingId}`);
@@ -212,10 +225,11 @@ async function fetchVelocityGoOrder(client, trackingId) {
     if (!isNotFoundResponse(err)) throw err;
   }
 
-  const filters = JSON.stringify([['order_number', 'LIKE', `%${trackingId}%`]]);
-  const search = await client.get('/orders', { params: { filters, size: 1 } });
-  const results = search.data?.data || search.data?.results || search.data?.items || [];
-  return Array.isArray(results) ? results[0] : null;
+  for (const field of SEARCH_FIELDS) {
+    const found = await searchOrderByField(client, field, trackingId);
+    if (found) return found;
+  }
+  return null;
 }
 
 // ============================================================================
