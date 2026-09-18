@@ -195,27 +195,27 @@ router.get('/:trackingId', async (req, res) => {
 // busca por order_number con la DSL de filtros que sí soporta ese campo.
 // ============================================================================
 
-function isNotFoundResponse(err) {
-  if (err.response?.status === 404) return true;
-  // Velocity responde 500 con este mensaje cuando el {id} de /orders/{id}
-  // no es un ID interno válido (por ejemplo, cuando el cliente escribió su
-  // order_number/tracking_number en vez del ID interno)
-  const msg = (err.response?.data?.message || '').toLowerCase();
-  return err.response?.status === 500 && msg.includes('record not found');
-}
-
 async function searchOrderByField(client, field, trackingId) {
-  const filters = JSON.stringify([[field, 'LIKE', `%${trackingId}%`]]);
-  const search = await client.get('/orders', { params: { filters, size: 1 } });
-  const results = search.data?.data || search.data?.results || search.data?.items || [];
-  console.log(`[SEARCH ${field}] "${trackingId}" -> ${Array.isArray(results) ? results.length : 0} resultado(s)`);
-  return Array.isArray(results) && results.length ? results[0] : null;
+  try {
+    const filters = JSON.stringify([[field, 'LIKE', `%${trackingId}%`]]);
+    const search = await client.get('/orders', { params: { filters, size: 1 } });
+    const results = search.data?.data || search.data?.results || search.data?.items || [];
+    console.log(`[SEARCH ${field}] "${trackingId}" -> ${Array.isArray(results) ? results.length : 0} resultado(s)`);
+    return Array.isArray(results) && results.length ? results[0] : null;
+  } catch (err) {
+    // Un campo que no existe en el esquema de Velocity (columna inválida u
+    // otro 400/422/500 de la búsqueda) no debe tumbar todo el request: se
+    // registra y se sigue probando con el siguiente campo.
+    console.error(`[SEARCH ${field}] error, se omite este campo:`, err.response?.data?.message || err.message);
+    return null;
+  }
 }
 
 // Campos por los que puede llegar el identificador que escribe el cliente:
-// order_number (número propio de Velocity) o external_id (ID de la orden de
-// origen, p.ej. el número de orden de VTEX si Velocity es el fulfillment).
-const SEARCH_FIELDS = ['order_number', 'external_id'];
+// order_number (número propio de Velocity), o el ID de la orden de origen
+// (p.ej. el número de orden de VTEX si Velocity es el fulfillment) bajo
+// alguno de estos posibles nombres de columna.
+const SEARCH_FIELDS = ['order_number', 'external_order_id', 'external_id', 'reference'];
 
 async function fetchVelocityGoOrder(client, trackingId) {
   try {
