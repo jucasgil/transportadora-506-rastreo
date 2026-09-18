@@ -101,36 +101,38 @@ async function saveShipmentToCache(trackingId, shipmentData) {
 // ============================================================================
 // TRADUCCIÓN DE ESTADOS
 // Velocity devuelve sus propios nombres de estado internos (p.ej. "Asignar
-// piloto"), pensados para el operador, no para el cliente final. Acá se
+// Piloto"), pensados para el operador, no para el cliente final. Acá se
 // traducen a un texto público más amigable antes de mostrarlo en la página
-// de rastreo. La llave debe coincidir EXACTO (mismas mayúsculas/acentos)
-// con el nombre que envía Velocity en order_status.name / history[].status
-// — si un estado no está en el mapa, se muestra tal cual llega.
+// de rastreo. La comparación de la llave NO distingue mayúsculas/minúsculas
+// (se normaliza con .toLowerCase()), pero escribe la llave como la ves en
+// [STATUS RAW] en los logs para que sea fácil de encontrar y editar.
+// Si un estado no está en el mapa, se muestra tal cual llega de Velocity.
 // ============================================================================
 const STATUS_LABELS = {
-  'Asignar piloto': 'En proceso',
-  'Pendiente': 'Pendiente',
-  'Confirmado': 'Confirmado',
-  'En ruta': 'En camino',
-  'En tránsito': 'En camino',
-  'Entregado': 'Entregado',
-  'Fallido': 'Novedad en la entrega',
-  'Cancelado': 'Cancelado',
-  'Devuelto': 'Devuelto'
-  // Agrega aquí más pares "Nombre exacto en Velocity": "Texto para mostrar"
+  'asignar piloto': 'En proceso',
+  'pendiente': 'Pendiente',
+  'confirmado': 'Confirmado',
+  'en ruta': 'En camino',
+  'en tránsito': 'En camino',
+  'entregado': 'Entregado',
+  'fallido': 'Novedad en la entrega',
+  'cancelado': 'Cancelado',
+  'devuelto': 'Devuelto'
+  // Agrega aquí más pares "nombre en minúsculas de Velocity": "Texto para mostrar"
 };
 
 function publicStatusLabel(rawName) {
   if (!rawName) return 'Desconocido';
-  return STATUS_LABELS[rawName] || rawName;
+  const key = rawName.trim().toLowerCase();
+  return STATUS_LABELS[key] || rawName;
 }
 
 function transformVelocityGoResponse(data, trackingId) {
   // Velocity devuelve el estado como objeto { id, name, color }, no como string plano
   const statusObj = data.order_status || {};
   const statusName = statusObj.name || data.status;
-  // TEMPORAL: para ver el nombre EXACTO (con mayúsculas/espacios) que envía
-  // Velocity y ajustar bien la llave en STATUS_LABELS. Quitar después.
+  // Deja ver en los logs de Vercel el nombre exacto que envía Velocity,
+  // útil si aparece un estado nuevo que aún no está en STATUS_LABELS.
   console.log('[STATUS RAW]', JSON.stringify(statusName));
   const shipping = data.shipping_information || data.location || {};
   const customer = data.customer || {};
