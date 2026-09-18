@@ -195,12 +195,21 @@ router.get('/:trackingId', async (req, res) => {
 // busca por order_number con la DSL de filtros que sí soporta ese campo.
 // ============================================================================
 
+function isNotFoundResponse(err) {
+  if (err.response?.status === 404) return true;
+  // Velocity responde 500 con este mensaje cuando el {id} de /orders/{id}
+  // no es un ID interno válido (por ejemplo, cuando el cliente escribió su
+  // order_number/tracking_number en vez del ID interno)
+  const msg = (err.response?.data?.message || '').toLowerCase();
+  return err.response?.status === 500 && msg.includes('record not found');
+}
+
 async function fetchVelocityGoOrder(client, trackingId) {
   try {
     const direct = await client.get(`/orders/${trackingId}`);
     if (direct.data) return direct.data;
   } catch (err) {
-    if (err.response?.status !== 404) throw err;
+    if (!isNotFoundResponse(err)) throw err;
   }
 
   const filters = JSON.stringify([['order_number', 'LIKE', `%${trackingId}%`]]);
