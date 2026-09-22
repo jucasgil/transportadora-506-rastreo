@@ -110,8 +110,10 @@ async function saveShipmentToCache(trackingId, shipmentData) {
 // ============================================================================
 const STATUS_LABELS = {
   'orden creada': 'En proceso',
-  'asignar piloto': 'En proceso',
-  'asignado a piloto': 'Asignado para distribución',
+  'asignar piloto': 'Orden creada',
+  'asignado a piloto': 'En proceso',
+  'asignado piloto': 'En proceso',
+  'recoger': 'Asignado para distribución',
   'en camino': 'En camino',
   'pendiente': 'Pendiente',
   'confirmado': 'Confirmado',
@@ -157,8 +159,10 @@ function publicStatusLabel(rawName) {
 const STATUS_DELIVERY_RULES = {
   'orden creada': { type: 'offset', days: 3 },
   'pendiente': { type: 'offset', days: 3 },
-  'asignar piloto': { type: 'event_offset', days: 1 },
+  'asignar piloto': { type: 'event_offset', days: 3 },
   'asignado a piloto': { type: 'event_offset', days: 1 },
+  'asignado piloto': { type: 'event_offset', days: 1 },
+  'recoger': { type: 'event' },
   'confirmado': { type: 'range', minDays: 2, maxDays: 4 },
   'en camino': { type: 'event' },
   'en ruta': { type: 'event' },
