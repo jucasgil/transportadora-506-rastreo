@@ -278,7 +278,6 @@ function transformVelocityGoResponse(data, trackingId) {
   console.log('[STATUS RAW]', JSON.stringify(statusName));
   const shipping = data.shipping_information || data.location || {};
   const customer = data.customer || {};
-  const provider = data.delivery_provider || {};
 
   const events = Array.isArray(data.history) ? data.history.map(e => ({
     timestamp: e.timestamp || e.created_at || e.date,
@@ -314,7 +313,6 @@ function transformVelocityGoResponse(data, trackingId) {
     // Se conserva el crudo de Velocity solo como referencia/depuración; ya no
     // se muestra directamente en la página de rastreo.
     estimated_delivery_raw: data.delivery_date || data.estimated_delivery_date || data.estimated_delivery,
-    current_carrier: provider.name || data.carrier_name || data.carrier,
     events,
     // El destinatario (a quién se le entrega) vive en shipping_information;
     // customer es quien hizo/pagó el pedido. Se usa shipping primero y
