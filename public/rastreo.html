@@ -151,7 +151,6 @@
           <div class="info-card"><h3>Destinatario</h3><p id="recipientName">-</p></div>
           <div class="info-card"><h3>Teléfono</h3><p id="recipientPhone">-</p></div>
           <div class="info-card"><h3 id="estimatedDeliveryLabel">Entrega Estimada</h3><p id="estimatedDelivery">-</p></div>
-          <div class="info-card"><h3>Transportista</h3><p id="carrier">-</p></div>
         </div>
 
         <div class="timeline">
@@ -202,7 +201,6 @@
       document.getElementById('recipientPhone').textContent = data.recipient_phone || '-';
       document.getElementById('estimatedDeliveryLabel').textContent = data.estimated_delivery_label || 'Entrega Estimada';
       document.getElementById('estimatedDelivery').textContent = data.estimated_delivery_display || '-';
-      document.getElementById('carrier').textContent = data.current_carrier || 'En proceso';
 
       if (data.events?.length) displayTimeline(data.events);
 
