@@ -145,17 +145,20 @@ function publicStatusLabel(rawName) {
 //     tiempos reales de tu operación.
 // ============================================================================
 
-// Regla por estado (llave = nombre de Velocity en minúsculas). Tres tipos:
-//   - 'offset': un solo día = fecha de CREACIÓN del pedido + N días
-//   - 'event':  un solo día = fecha en que el pedido CAMBIÓ a ese estado
-//               (se busca en el historial; si no aparece ahí, se usa hoy)
-//   - 'range':  rango de días desde la creación (min-max), para estados sin
-//               regla explícita todavía
+// Regla por estado (llave = nombre de Velocity en minúsculas). Cuatro tipos:
+//   - 'offset':       un solo día = fecha de CREACIÓN del pedido + N días
+//   - 'event':        un solo día = fecha en que el pedido CAMBIÓ a ese
+//                      estado (se busca en el historial; si no aparece ahí,
+//                      se usa hoy)
+//   - 'event_offset': un solo día = fecha en que el pedido CAMBIÓ a ese
+//                      estado + N días (igual que 'event' pero sumando días)
+//   - 'range':        rango de días desde la creación (min-max), para
+//                      estados sin regla explícita todavía
 const STATUS_DELIVERY_RULES = {
   'orden creada': { type: 'offset', days: 3 },
   'pendiente': { type: 'offset', days: 3 },
-  'asignar piloto': { type: 'offset', days: 1 },
-  'asignado a piloto': { type: 'offset', days: 1 },
+  'asignar piloto': { type: 'event_offset', days: 1 },
+  'asignado a piloto': { type: 'event_offset', days: 1 },
   'confirmado': { type: 'range', minDays: 2, maxDays: 4 },
   'en camino': { type: 'event' },
   'en ruta': { type: 'event' },
@@ -182,6 +185,21 @@ function findEventTimestamp(events, statusKeyLower) {
   const matches = events.filter(e => (e.status_raw || e.status || '').toString().trim().toLowerCase() === statusKeyLower);
   if (!matches.length) return null;
   return matches[matches.length - 1].timestamp;
+}
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Si el pedido se quedó más tiempo del previsto en un estado (ej. lleva 3
+// días en "Asignar Piloto" pero la regla solo daba +1 día), la cuenta desde
+// la creación cae en el pasado. Nunca se debe prometer una fecha ya vencida:
+// se sube al menos a hoy.
+function clampToToday(date) {
+  const today = startOfDay(new Date());
+  return startOfDay(date) < today ? new Date() : date;
 }
 
 function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
@@ -212,17 +230,39 @@ function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
     return { label: 'Entrega Estimada', display: formatDateEs(changedAt) };
   }
 
+  if (rule.type === 'event_offset') {
+    // Igual que 'event', pero sumando N días a la fecha del cambio de
+    // estado (no a la creación del pedido).
+    const changedAt = findEventTimestamp(events, statusKeyLower) || new Date().toISOString();
+    const target = clampToToday(addDays(changedAt, rule.days));
+    return { label: 'Entrega Estimada', display: formatDateEs(target) };
+  }
+
   if (!createdAt) {
     return { label: 'Entrega Estimada', display: 'Por confirmar' };
   }
 
   if (rule.type === 'offset') {
-    return { label: 'Entrega Estimada', display: formatDateEs(addDays(createdAt, rule.days)) };
+    const target = clampToToday(addDays(createdAt, rule.days));
+    return { label: 'Entrega Estimada', display: formatDateEs(target) };
   }
 
   // rule.type === 'range'
-  const from = addDays(createdAt, rule.minDays);
-  const to = addDays(createdAt, rule.maxDays);
+  let from = addDays(createdAt, rule.minDays);
+  let to = addDays(createdAt, rule.maxDays);
+  const today = startOfDay(new Date());
+
+  if (startOfDay(to) < today) {
+    // Todo el rango ya venció (el pedido lleva más días de los previstos en
+    // esta etapa): se muestra un solo día, hoy, en vez de un rango pasado.
+    return { label: 'Entrega Estimada', display: formatDateEs(new Date()) };
+  }
+  if (startOfDay(from) < today) {
+    // El inicio del rango ya pasó pero el final todavía no: se recorta el
+    // rango para que empiece hoy.
+    from = new Date();
+  }
+
   const fromLabel = from.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
   const toLabel = to.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
   return { label: 'Entrega Estimada', display: `Entre el ${fromLabel} y el ${toLabel}` };
