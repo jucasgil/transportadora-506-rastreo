@@ -138,6 +138,20 @@ function transformVelocityGoResponse(data, trackingId) {
   const customer = data.customer || {};
   const provider = data.delivery_provider || {};
 
+  // [DIAGNÓSTICO FECHA ENTREGA] Log temporal para ver exactamente qué envía
+  // Velocity en cada uno de estos tres campos, y decidir cuál (si alguno) es
+  // confiable. Revisa esto en Vercel > Logs para un pedido real y luego se
+  // puede quitar.
+  console.log('[ESTIMATED DELIVERY RAW]', JSON.stringify({
+    order_id: data.id || data.order_id,
+    order_number: data.order_number,
+    delivery_date: data.delivery_date,
+    estimated_delivery_date: data.estimated_delivery_date,
+    estimated_delivery: data.estimated_delivery,
+    created_at: data.created_at,
+    order_status: statusName
+  }));
+
   return {
     tracking_id: trackingId,
     velocitygo_order_id: data.id || data.order_id,
