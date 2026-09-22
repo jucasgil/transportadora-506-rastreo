@@ -28,9 +28,10 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html{scroll-behavior:smooth;}
-    body { font-family: 'Plus Jakarta Sans', sans-serif; color:var(--ink); background: var(--navy); background: linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 340px, var(--paper) 340px); min-height: 100vh; padding: 0 20px 60px; line-height:1.6; }
-    .container { max-width: 900px; margin: 0 auto; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; color:var(--ink); background: var(--paper); min-height: 100vh; padding: 0 0 60px; line-height:1.6; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
 
+    .hero-panel { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%); border-radius: 0 0 32px 32px; margin-bottom: -8px; }
     header { text-align: center; color: white; padding: 56px 0 40px; }
     .brand-mark{display:inline-flex;align-items:center;gap:10px;margin-bottom:22px;}
     .brand-mark svg{color:var(--lime);}
@@ -96,7 +97,8 @@
     .qr-section img { max-width: 176px; margin: 14px 0; border-radius:8px; }
 
     @media (max-width: 768px) {
-      body{padding:0 16px 50px;}
+      body{padding:0 0 50px;}
+      .container{padding:0 16px;}
       header{padding:44px 0 32px;}
       .search-card, .tracking-info{padding:26px;}
       .search-form { flex-direction: column; }
@@ -108,16 +110,20 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand-mark">
-        <svg width="24" height="24" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 20L10.5 2H16.5L8 20H2Z" fill="currentColor"/><path d="M11.5 20L20 2H24L15.5 20H11.5Z" fill="currentColor" opacity="0.5"/></svg>
-        <span>506 logistics</span>
-      </div>
-      <h1>Rastrear pedido</h1>
-      <p>Consulta el estado de tu guía en tiempo real</p>
-    </header>
+  <div class="hero-panel">
+    <div class="container">
+      <header>
+        <div class="brand-mark">
+          <svg width="24" height="24" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 20L10.5 2H16.5L8 20H2Z" fill="currentColor"/><path d="M11.5 20L20 2H24L15.5 20H11.5Z" fill="currentColor" opacity="0.5"/></svg>
+          <span>506 logistics</span>
+        </div>
+        <h1>Rastrear pedido</h1>
+        <p>Consulta el estado de tu guía en tiempo real</p>
+      </header>
+    </div>
+  </div>
 
+  <div class="container">
     <div class="search-card">
       <div class="search-form">
         <input type="text" id="trackingInput" placeholder="Ingresa tu número de rastreo">
