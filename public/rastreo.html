@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rastrear Pedido - 506 Logistics</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -79,9 +78,6 @@
     .info-card h3 { font-size: 12px; color: var(--slate); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight:600; }
     .info-card p { font-size: 15.5px; font-weight: 700; color: var(--ink); }
 
-    .map-container { border-radius: var(--r-card); overflow: hidden; margin-bottom: 28px; box-shadow: var(--shadow-sm); }
-    #map { height: 380px; width: 100%; }
-
     .timeline { margin-top: 8px; }
     .timeline h3 { font-size: 17px; margin-bottom: 20px; color: var(--ink); font-weight:700; display:flex; align-items:center; gap:10px; }
     .timeline h3 i{color:var(--blue);}
@@ -154,12 +150,8 @@
         <div class="tracking-grid">
           <div class="info-card"><h3>Destinatario</h3><p id="recipientName">-</p></div>
           <div class="info-card"><h3>Teléfono</h3><p id="recipientPhone">-</p></div>
-          <div class="info-card"><h3>Entrega Estimada</h3><p id="estimatedDelivery">-</p></div>
+          <div class="info-card"><h3 id="estimatedDeliveryLabel">Entrega Estimada</h3><p id="estimatedDelivery">-</p></div>
           <div class="info-card"><h3>Transportista</h3><p id="carrier">-</p></div>
-        </div>
-
-        <div class="map-container" id="mapContainer" style="display: none;">
-          <div id="map"></div>
         </div>
 
         <div class="timeline">
@@ -176,9 +168,7 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script>
-    let map = null, marker = null;
     const API_URL = window.location.origin;
 
     async function searchTracking(id = null) {
@@ -210,10 +200,10 @@
 
       document.getElementById('recipientName').textContent = data.recipient_name || '-';
       document.getElementById('recipientPhone').textContent = data.recipient_phone || '-';
-      document.getElementById('estimatedDelivery').textContent = new Date(data.estimated_delivery).toLocaleDateString('es-CO');
+      document.getElementById('estimatedDeliveryLabel').textContent = data.estimated_delivery_label || 'Entrega Estimada';
+      document.getElementById('estimatedDelivery').textContent = data.estimated_delivery_display || '-';
       document.getElementById('carrier').textContent = data.current_carrier || 'En proceso';
 
-      if (data.location?.latitude && data.location?.longitude) showMap(data.location);
       if (data.events?.length) displayTimeline(data.events);
 
       const url = window.location.href;
@@ -223,16 +213,6 @@
       }
 
       document.getElementById('results').classList.add('active');
-    }
-
-    function showMap(loc) {
-      document.getElementById('mapContainer').style.display = 'block';
-      if (!map) {
-        map = L.map('map').setView([loc.latitude, loc.longitude], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-      }
-      if (marker) map.removeLayer(marker);
-      marker = L.marker([loc.latitude, loc.longitude]).addTo(map).bindPopup(`${loc.city}`).openPopup();
     }
 
     function displayTimeline(events) {
