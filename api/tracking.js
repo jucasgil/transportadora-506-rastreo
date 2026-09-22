@@ -109,7 +109,10 @@ async function saveShipmentToCache(trackingId, shipmentData) {
 // Si un estado no está en el mapa, se muestra tal cual llega de Velocity.
 // ============================================================================
 const STATUS_LABELS = {
+  'orden creada': 'En proceso',
   'asignar piloto': 'En proceso',
+  'asignado a piloto': 'Asignado para distribución',
+  'en camino': 'En camino',
   'pendiente': 'Pendiente',
   'confirmado': 'Confirmado',
   'en ruta': 'En camino',
@@ -127,10 +130,109 @@ function publicStatusLabel(rawName) {
   return STATUS_LABELS[key] || rawName;
 }
 
+// ============================================================================
+// ENTREGA ESTIMADA
+// El campo `delivery_date` que envía Velocity resultó ser una fecha fija
+// calculada al CREAR el pedido (~8-9 días después), que NO se recalcula con
+// el avance real del envío: se confirmó viendo pedidos ya "Entregado" que
+// seguían mostrando una fecha estimada varios días en el futuro. Por eso acá
+// se ignora ese campo y se construye una estimación propia:
+//   - Estado final (Entregado/Cancelado/Devuelto/Fallido): no se estima nada,
+//     se muestra el resultado real (o el estado, si no hay fecha del evento).
+//   - Estado en proceso: ventana de días anclada a la fecha de CREACIÓN del
+//     pedido, según qué tan avanzada esté la etapa. Estos días son una regla
+//     de negocio, no vienen de Velocity — ajústalos aquí si cambian los
+//     tiempos reales de tu operación.
+// ============================================================================
+
+// Regla por estado (llave = nombre de Velocity en minúsculas). Tres tipos:
+//   - 'offset': un solo día = fecha de CREACIÓN del pedido + N días
+//   - 'event':  un solo día = fecha en que el pedido CAMBIÓ a ese estado
+//               (se busca en el historial; si no aparece ahí, se usa hoy)
+//   - 'range':  rango de días desde la creación (min-max), para estados sin
+//               regla explícita todavía
+const STATUS_DELIVERY_RULES = {
+  'orden creada': { type: 'offset', days: 3 },
+  'pendiente': { type: 'offset', days: 3 },
+  'asignar piloto': { type: 'offset', days: 1 },
+  'asignado a piloto': { type: 'offset', days: 1 },
+  'confirmado': { type: 'range', minDays: 2, maxDays: 4 },
+  'en camino': { type: 'event' },
+  'en ruta': { type: 'event' },
+  'en tránsito': { type: 'event' }
+};
+const DEFAULT_RULE = { type: 'range', minDays: 2, maxDays: 5 };
+
+function addDays(isoDate, days) {
+  const d = new Date(isoDate);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function formatDateEs(isoDate, opts) {
+  if (!isoDate) return null;
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('es-CO', opts || { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function findEventTimestamp(events, statusKeyLower) {
+  if (!Array.isArray(events)) return null;
+  // Toma la más reciente si el estado aparece varias veces en el historial.
+  const matches = events.filter(e => (e.status_raw || e.status || '').toString().trim().toLowerCase() === statusKeyLower);
+  if (!matches.length) return null;
+  return matches[matches.length - 1].timestamp;
+}
+
+function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
+  if (statusKeyLower === 'entregado') {
+    const deliveredAt = findEventTimestamp(events, 'entregado');
+    return {
+      label: 'Entrega Estimada',
+      display: deliveredAt ? `Entregado el ${formatDateEs(deliveredAt)}` : 'Entregado'
+    };
+  }
+  if (statusKeyLower === 'cancelado') {
+    return { label: 'Estado', display: 'Pedido cancelado' };
+  }
+  if (statusKeyLower === 'devuelto') {
+    return { label: 'Estado', display: 'Pedido devuelto' };
+  }
+  if (statusKeyLower === 'fallido') {
+    return { label: 'Estado', display: 'Novedad en la entrega' };
+  }
+
+  const rule = STATUS_DELIVERY_RULES[statusKeyLower] || DEFAULT_RULE;
+
+  if (rule.type === 'event') {
+    // El día a mostrar es cuando el pedido cambió a este estado, no la
+    // creación. Si el historial no trae ese evento todavía, se asume hoy
+    // (el cambio de estado que activó esta consulta acaba de ocurrir).
+    const changedAt = findEventTimestamp(events, statusKeyLower) || new Date().toISOString();
+    return { label: 'Entrega Estimada', display: formatDateEs(changedAt) };
+  }
+
+  if (!createdAt) {
+    return { label: 'Entrega Estimada', display: 'Por confirmar' };
+  }
+
+  if (rule.type === 'offset') {
+    return { label: 'Entrega Estimada', display: formatDateEs(addDays(createdAt, rule.days)) };
+  }
+
+  // rule.type === 'range'
+  const from = addDays(createdAt, rule.minDays);
+  const to = addDays(createdAt, rule.maxDays);
+  const fromLabel = from.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  const toLabel = to.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+  return { label: 'Entrega Estimada', display: `Entre el ${fromLabel} y el ${toLabel}` };
+}
+
 function transformVelocityGoResponse(data, trackingId) {
   // Velocity devuelve el estado como objeto { id, name, color }, no como string plano
   const statusObj = data.order_status || {};
   const statusName = statusObj.name || data.status;
+  const statusKeyLower = (statusName || '').trim().toLowerCase();
   // Deja ver en los logs de Vercel el nombre exacto que envía Velocity,
   // útil si aparece un estado nuevo que aún no está en STATUS_LABELS.
   console.log('[STATUS RAW]', JSON.stringify(statusName));
@@ -138,19 +240,19 @@ function transformVelocityGoResponse(data, trackingId) {
   const customer = data.customer || {};
   const provider = data.delivery_provider || {};
 
-  // [DIAGNÓSTICO FECHA ENTREGA] Log temporal para ver exactamente qué envía
-  // Velocity en cada uno de estos tres campos, y decidir cuál (si alguno) es
-  // confiable. Revisa esto en Vercel > Logs para un pedido real y luego se
-  // puede quitar.
-  console.log('[ESTIMATED DELIVERY RAW]', JSON.stringify({
-    order_id: data.id || data.order_id,
-    order_number: data.order_number,
-    delivery_date: data.delivery_date,
-    estimated_delivery_date: data.estimated_delivery_date,
-    estimated_delivery: data.estimated_delivery,
-    created_at: data.created_at,
-    order_status: statusName
-  }));
+  const events = Array.isArray(data.history) ? data.history.map(e => ({
+    timestamp: e.timestamp || e.created_at || e.date,
+    status: publicStatusLabel(e.status || e.name),
+    status_raw: (e.status || e.name || '').toString(),
+    description: e.description || e.message,
+    location: e.location
+  })) : [];
+
+  const deliveryEstimate = buildDeliveryEstimate({
+    statusKeyLower,
+    events,
+    createdAt: data.created_at
+  });
 
   return {
     tracking_id: trackingId,
@@ -167,14 +269,13 @@ function transformVelocityGoResponse(data, trackingId) {
       city: shipping.city,
       country: 'Colombia'
     },
-    estimated_delivery: data.delivery_date || data.estimated_delivery_date || data.estimated_delivery,
+    estimated_delivery_label: deliveryEstimate.label,
+    estimated_delivery_display: deliveryEstimate.display,
+    // Se conserva el crudo de Velocity solo como referencia/depuración; ya no
+    // se muestra directamente en la página de rastreo.
+    estimated_delivery_raw: data.delivery_date || data.estimated_delivery_date || data.estimated_delivery,
     current_carrier: provider.name || data.carrier_name || data.carrier,
-    events: Array.isArray(data.history) ? data.history.map(e => ({
-      timestamp: e.timestamp || e.created_at || e.date,
-      status: publicStatusLabel(e.status || e.name),
-      description: e.description || e.message,
-      location: e.location
-    })) : [],
+    events,
     // El destinatario (a quién se le entrega) vive en shipping_information;
     // customer es quien hizo/pagó el pedido. Se usa shipping primero y
     // customer como respaldo si algún campo viene vacío.
