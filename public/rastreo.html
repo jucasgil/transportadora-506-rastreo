@@ -3,252 +3,372 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rastrear Pedido - 506 Logistics</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <title>Rastrear pedido · 506 Logistics</title>
+  <meta name="description" content="Consulta el estado de tu guía 506 Logistics en tiempo real.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
-      --navy:#2438d6;
-      --navy-deep:#131c74;
-      --blue:#2438d6;
-      --lime:#f2e94e;
-      --paper:#f7f7f5;
-      --ink:#12142b;
-      --slate:#5b6172;
-      --line:#e3e3dd;
-      --r-pill:999px;
-      --r-card:22px;
-      --r-sm:14px;
-      --shadow-sm:0 1px 2px rgba(18,20,43,.04), 0 1px 1px rgba(18,20,43,.03);
-      --shadow-md:0 12px 32px -12px rgba(18,20,43,.16);
-      --shadow-lg:0 24px 48px -16px rgba(18,20,43,.22);
+      --canvas:#0a0e3a; --panel:#111865; --line-dark:#252f8c; --muted-dark:#9aa0cc;
+      --white:#ffffff; --bone:#f3f3ee; --wash:#fbf7cf;
+      --signal:#f2e94e; --blue:#2438d6;
+      --ink:#12142b; --slate:#5b6172; --line:#e2e2dc;
+      --f-ui:'Plus Jakarta Sans','Helvetica Neue',Arial,sans-serif;
+      --r-pill:28px; --r-card:20px; --r-badge:40px;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html{scroll-behavior:smooth;}
-    body { font-family: 'Plus Jakarta Sans', sans-serif; color:var(--ink); background: var(--paper); min-height: 100vh; padding: 0 0 60px; line-height:1.6; }
-    .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:var(--f-ui);background:var(--white);color:var(--ink);font-size:16px;line-height:1.5;letter-spacing:-0.01em;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+    a{color:inherit;text-decoration:none;}
+    :focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:6px;}
+    .wrap{max-width:960px;margin:0 auto;padding-inline:24px;width:100%;}
+    [hidden]{display:none!important;}
 
-    .hero-panel { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%); border-radius: 0 0 32px 32px; margin-bottom: -8px; }
-    header { text-align: center; color: white; padding: 56px 0 40px; }
-    .brand-mark{display:inline-flex;align-items:center;gap:10px;margin-bottom:22px;}
-    .brand-mark svg{color:var(--lime);}
-    .brand-mark span{font-weight:800;font-size:20px;letter-spacing:-0.01em;}
-    header h1 { font-size: clamp(28px,4.5vw,40px); margin-bottom: 10px; font-weight: 800; letter-spacing:-0.02em; }
-    header p { color:#c3c9f5; font-size:15px; }
+    /* ---------- Hero oscuro ---------- */
+    .hero{position:relative;overflow:hidden;background:var(--canvas);color:var(--white);padding:20px 0 88px;}
+    .orb{position:absolute;width:640px;height:640px;border-radius:9999px;left:50%;top:-300px;transform:translateX(-50%);background:radial-gradient(circle at 50% 60%,#2a3be0 0%,#18228f 38%,rgba(10,14,58,0) 70%);opacity:.85;pointer-events:none;}
+    .hero-map{position:absolute;top:0;left:0;width:100%;height:700px;pointer-events:none;opacity:.22;-webkit-mask-image:radial-gradient(ellipse 75% 70% at 50% 30%,#000 35%,transparent 80%);mask-image:radial-gradient(ellipse 75% 70% at 50% 30%,#000 35%,transparent 80%);}
+    .hero .wrap{position:relative;}
 
-    .search-card { background: white; border-radius: var(--r-card); padding: 36px; box-shadow: var(--shadow-lg); margin-bottom: 24px; margin-top:-8px; }
-    .search-form { display: flex; gap: 12px; flex-wrap: wrap; }
-    .search-form input { flex: 1; min-width: 220px; padding: 15px 20px; border: 1.5px solid var(--line); background:var(--paper); border-radius: var(--r-sm); font-size: 15px; font-family:inherit; }
-    .search-form input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(36,56,214,.12); }
-    .search-form button { padding: 15px 34px; background: var(--lime); color: var(--navy-deep); border: none; border-radius: var(--r-pill); font-size: 15px; font-weight: 700; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; display:inline-flex; align-items:center; gap:8px; }
-    .search-form button:hover { background:#f7f177; transform:translateY(-2px); box-shadow:var(--shadow-md); }
+    .nav-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;background:rgba(18,20,43,.9);border:1px solid rgba(255,255,255,.08);border-radius:var(--r-pill);padding:8px 8px 8px 20px;box-shadow:0 8px 32px rgba(0,0,0,.28);min-height:58px;}
+    .mark{display:inline-grid;grid-template-columns:auto auto;column-gap:10px;align-items:center;}
+    .mark svg{color:var(--signal);grid-row:1/3;}
+    .mark b{font-weight:800;font-size:20px;letter-spacing:-0.03em;line-height:1;align-self:end;}
+    .mark span{font-size:9px;font-weight:600;letter-spacing:.16em;color:var(--muted-dark);text-transform:uppercase;line-height:1;margin-top:3px;align-self:start;}
+    .nav-cta{font-size:14px;font-weight:600;background:var(--signal);color:var(--ink);padding:8px 16px;border-radius:var(--r-pill);white-space:nowrap;}
 
-    .loading { display: none; text-align: center; padding: 50px 20px; color: white; }
-    .loading.active { display: block; }
-    .loading-spinner { border: 3px solid rgba(255, 255, 255, 0.25); border-top: 3px solid var(--lime); border-radius: 50%; width: 38px; height: 38px; animation: spin 0.9s linear infinite; margin: 0 auto 18px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .hero-copy{display:grid;justify-items:center;text-align:center;gap:18px;margin-top:80px;}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:.02em;padding:4px 14px;border-radius:var(--r-badge);border:1px solid #4b5392;color:var(--muted-dark);}
+    h1{font-size:clamp(40px,6.4vw,72px);font-weight:800;line-height:.92;letter-spacing:-0.045em;text-wrap:balance;}
+    .hl{color:var(--signal);}
+    .lead{font-size:18px;color:var(--muted-dark);max-width:520px;}
 
-    .error { display: none; background: #fff; color: #b3261e; padding: 20px 24px; border-radius: var(--r-sm); margin-bottom: 24px; box-shadow: var(--shadow-sm); font-weight: 600; }
-    .error.active { display: flex; align-items:center; gap:10px; }
+    .search{display:flex;gap:10px;width:100%;max-width:620px;margin-top:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:40px;padding:8px;}
+    .search input{flex:1;min-width:0;font:inherit;font-size:16px;padding:12px 18px;border-radius:32px;border:0;background:var(--white);color:var(--ink);}
+    .search input:focus{outline:none;box-shadow:0 0 0 3px rgba(242,233,78,.55);}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:var(--f-ui);font-size:15px;font-weight:600;padding:12px 24px;border-radius:var(--r-pill);border:0;cursor:pointer;transition:transform .2s ease,background .2s ease;white-space:nowrap;}
+    .btn:hover{transform:translateY(-1px);}
+    .btn--signal{background:var(--signal);color:var(--ink);}
+    .btn--signal:hover{background:#f7f07a;}
+    .btn svg{width:16px;height:16px;flex:0 0 auto;}
+    .hint{font-size:13px;color:var(--muted-dark);}
 
-    .results { display: none; }
-    .results.active { display: block; }
-    .tracking-info { background: white; border-radius: var(--r-card); padding: 36px; margin-bottom: 24px; box-shadow: var(--shadow-lg); }
-    .status-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap:wrap; gap:16px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
-    #trackingNumber{ font-size:15px; font-weight:600; color:var(--slate); margin-bottom:12px; letter-spacing:0.01em; }
-    .status-badge { display: inline-flex; align-items:center; gap:8px; padding: 10px 20px; border-radius: var(--r-pill); font-weight: 700; font-size: 15px; }
-    .status-badge::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor;}
-    .status-en-proceso, .status-asignar-piloto { background: #e6e9fb; color: var(--blue); }
-    .status-pendiente { background: #fff3cd; color: #8a6300; }
-    .status-confirmado { background: #e6e9fb; color: var(--blue); }
-    .status-en-camino, .status-en-tránsito { background: #d9f0ff; color: #0a6cad; }
-    .status-entregado { background: #e6f9ea; color: #1c8a44; }
-    .status-novedad-en-la-entrega { background: #ffe9e5; color: #c1391f; }
-    .status-cancelado { background: #f1f1ee; color: var(--slate); }
-    .status-devuelto { background: #fdeee0; color: #b35c00; }
-    .status-desconocido { background: #f1f1ee; color: var(--slate); }
-    .update-meta{ text-align: right; color: var(--slate); }
-    .update-meta .k{font-size:12.5px; margin-bottom:4px;}
-    .update-meta .v{font-weight:700; color:var(--ink); font-size:14.5px;}
+    /* ---------- Resultados ---------- */
+    main{flex:1;padding:56px 0 96px;}
+    .loading{display:none;text-align:center;padding:40px 0;color:var(--slate);}
+    .loading.active{display:block;}
+    .spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:spin .9s linear infinite;margin:0 auto 14px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .error{display:none;align-items:center;gap:12px;background:#fdeceb;color:#9f2d24;padding:16px 20px;border-radius:16px;font-weight:600;margin-bottom:32px;}
+    .error.active{display:flex;}
+    .error svg{width:20px;height:20px;flex:0 0 auto;}
 
-    .tracking-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 28px; }
-    .info-card { background: var(--paper); padding: 20px 22px; border-radius: var(--r-sm); }
-    .info-card h3 { font-size: 12px; color: var(--slate); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight:600; }
-    .info-card p { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+    .results{display:none;}
+    .results.active{display:block;}
+    .card{background:var(--white);border:1px solid var(--line);border-radius:24px;padding:36px;display:grid;gap:32px;box-shadow:0 20px 50px -24px rgba(18,20,43,.18);}
+    .status-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;}
+    .k{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);}
+    #trackingNumber{font-size:clamp(28px,4vw,36px);font-weight:800;letter-spacing:-0.035em;line-height:1.05;margin:6px 0 14px;font-variant-numeric:tabular-nums;word-break:break-all;}
+    .update-meta{text-align:right;}
+    .update-meta .v{font-weight:700;font-size:15px;margin-top:4px;}
 
-    .progress-stepper { margin: 8px 0 30px; }
-    .progress-track { position: relative; height: 4px; background: var(--line); border-radius: 999px; margin: 0 12px 16px; }
-    .progress-track-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--blue); border-radius: 999px; transition: width .3s ease; }
-    .progress-steps { display: flex; justify-content: space-between; }
-    .progress-step { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; text-align: center; padding: 0 2px; }
-    .progress-step .dot { width: 13px; height: 13px; border-radius: 50%; background: var(--paper); border: 3px solid var(--line); }
-    .progress-step.done .dot { background: var(--blue); border-color: var(--blue); }
-    .progress-step.current .dot { background: var(--lime); border-color: var(--lime); box-shadow: 0 0 0 4px rgba(242,233,78,.35); }
-    .progress-step.issue .dot { background: #e0574c; border-color: #e0574c; box-shadow: 0 0 0 4px rgba(224,87,76,.2); }
-    .progress-step.returned .dot { background: #e0894c; border-color: #e0894c; box-shadow: 0 0 0 4px rgba(224,137,76,.2); }
-    .progress-step.returned .label { color: #b0602f; }
-    .progress-step .label { font-size: 11.5px; font-weight: 600; color: var(--slate); line-height: 1.3; }
-    .progress-step.done .label, .progress-step.current .label { color: var(--ink); }
-    .progress-cancelled { display: flex; align-items: center; gap: 10px; background: #fdeceb; color: #b03a30; border-radius: var(--r-sm); padding: 14px 18px; font-weight: 700; font-size: 14.5px; }
-    @media (max-width: 640px) {
-      .progress-step .label { font-size: 10px; }
+    .status-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:var(--r-badge);font-weight:700;font-size:14px;background:var(--bone);color:var(--ink);}
+    .status-badge::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;}
+    .status-orden-creada,.status-en-proceso,.status-confirmado,.status-asignado-para-distribución{background:#e6e9fc;color:var(--blue);}
+    .status-pendiente{background:var(--wash);color:#6b6212;}
+    .status-en-camino,.status-en-tránsito{background:var(--wash);color:#5a5310;}
+    .status-entregado{background:#e7f6ea;color:#1f6b33;}
+    .status-novedad-en-la-entrega{background:#fdeceb;color:#b03a30;}
+    .status-cancelado,.status-desconocido{background:var(--bone);color:var(--slate);}
+    .status-devuelto{background:#fdeee0;color:#a3530f;}
+
+    /* Barra de progreso */
+    .progress-stepper{position:relative;}
+    .progress-steps{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;}
+    .progress-track{position:absolute;top:10px;height:2px;background:var(--line);}
+    .progress-track-fill{position:absolute;top:0;left:0;height:100%;background:var(--blue);transition:width .4s ease;}
+    .progress-step{position:relative;display:grid;justify-items:center;gap:10px;text-align:center;}
+    .progress-step .dot{width:22px;height:22px;border-radius:50%;background:var(--white);border:2px solid var(--line);}
+    .progress-step.done .dot{background:var(--blue);border-color:var(--blue);}
+    .progress-step.current .dot{background:var(--signal);border-color:var(--ink);box-shadow:0 0 0 6px rgba(242,233,78,.35);animation:pulse 2.4s ease-in-out infinite;}
+    .progress-step.issue .dot{background:#e0574c;border-color:#e0574c;box-shadow:0 0 0 6px rgba(224,87,76,.18);}
+    .progress-step.returned .dot{background:#e0894c;border-color:#e0894c;box-shadow:0 0 0 6px rgba(224,137,76,.18);}
+    .progress-step .label{font-size:12.5px;font-weight:600;color:var(--slate);line-height:1.3;max-width:120px;}
+    .progress-step.done .label{color:var(--ink);}
+    .progress-step.current .label,.progress-step.issue .label{color:var(--ink);font-weight:800;}
+    .progress-step.returned .label{color:#a3530f;font-weight:800;}
+    @keyframes pulse{50%{box-shadow:0 0 0 10px rgba(242,233,78,.12);}}
+    .progress-cancelled{display:flex;align-items:center;gap:10px;background:#fdeceb;color:#9f2d24;border-radius:16px;padding:14px 18px;font-weight:700;font-size:15px;}
+    .progress-cancelled svg{width:18px;height:18px;flex:0 0 auto;}
+
+    .tracking-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+    .info-card{background:var(--bone);border-radius:16px;padding:18px 20px;display:grid;gap:6px;}
+    .info-card h3{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);}
+    .info-card p{font-size:16px;font-weight:700;letter-spacing:-0.015em;}
+    .info-card--eta{background:var(--ink);color:var(--white);}
+    .info-card--eta h3{color:var(--muted-dark);}
+    .info-card--eta p{color:var(--signal);}
+
+    .timeline h3{font-size:18px;font-weight:800;letter-spacing:-0.02em;margin-bottom:18px;}
+    .timeline-event{display:grid;grid-template-columns:14px 1fr;gap:16px;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--line);}
+    .timeline-event:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0;}
+    .timeline-dot{width:10px;height:10px;border-radius:50%;background:var(--blue);margin-top:7px;}
+    .timeline-content h4{font-size:15px;font-weight:700;}
+    .timeline-content .time{font-size:13px;color:var(--slate);}
+    .timeline-content p{font-size:14px;color:var(--slate);margin-top:4px;}
+
+    .qr-section{display:grid;justify-items:center;gap:8px;background:var(--bone);border-radius:16px;padding:24px;text-align:center;}
+    .qr-section p{font-size:14px;color:var(--slate);}
+    .qr-section .t{font-weight:700;color:var(--ink);}
+    .qr-section img{width:160px;height:160px;border-radius:8px;background:var(--white);}
+
+    /* Guía de estados */
+    .guide{margin-top:64px;}
+    .guide h2{font-size:clamp(26px,3.4vw,34px);font-weight:800;letter-spacing:-0.035em;line-height:1.05;margin:14px 0 28px;}
+    .guide .eyebrow{color:var(--slate);border-color:var(--line);}
+    .stages{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;counter-reset:st;}
+    .stage{background:var(--bone);border-radius:18px;padding:20px;display:grid;gap:8px;align-content:start;}
+    .stage::before{counter-increment:st;content:counter(st);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;background:var(--white);color:var(--blue);margin-bottom:8px;}
+    .stage:last-child::before{background:var(--signal);color:var(--ink);}
+    .stage h3{font-size:15px;font-weight:700;letter-spacing:-0.015em;line-height:1.25;}
+    .stage p{font-size:13.5px;color:var(--slate);}
+
+    /* Footer */
+    footer{background:var(--canvas);color:var(--muted-dark);padding:40px 0;}
+    .foot{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;font-size:14px;}
+    .foot .mark{color:var(--white);}
+    .foot ul{list-style:none;display:flex;gap:24px;flex-wrap:wrap;}
+
+    @media (max-width:820px){
+      .tracking-grid{grid-template-columns:1fr;}
+      .stages{grid-template-columns:1fr 1fr;}
+      .stage:last-child{grid-column:1/-1;}
     }
-
-    .timeline { margin-top: 8px; }
-    .timeline h3 { font-size: 17px; margin-bottom: 20px; color: var(--ink); font-weight:700; display:flex; align-items:center; gap:10px; }
-    .timeline h3 i{color:var(--blue);}
-    .timeline-event { display: flex; gap: 18px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
-    .timeline-event:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
-    .timeline-dot { min-width: 10px; width: 10px; height: 10px; background: var(--blue); border-radius: 50%; margin-top: 6px; }
-    .timeline-content h4 { font-size: 15px; color: var(--ink); margin-bottom: 4px; font-weight:700; }
-    .timeline-content .time { font-size: 13px; color: var(--slate); }
-    .timeline-content p{font-size:13.5px; color:var(--slate); margin-top:4px;}
-
-    .qr-section { text-align: center; padding: 24px; background: var(--paper); border-radius: var(--r-sm); margin-top: 24px; }
-    .qr-section p{color:var(--slate); font-size:14px;}
-    .qr-section img { max-width: 176px; margin: 14px 0; border-radius:8px; }
-
-    @media (max-width: 768px) {
-      body{padding:0 0 50px;}
-      .container{padding:0 16px;}
-      header{padding:44px 0 32px;}
-      .search-card, .tracking-info{padding:26px;}
-      .search-form { flex-direction: column; }
-      .search-form button{ justify-content:center; }
-      .status-header{ flex-direction:column; }
-      .update-meta{ text-align:left; }
-      #map { height: 280px; }
+    @media (max-width:640px){
+      .wrap{padding-inline:16px;}
+      .hero{padding-bottom:64px;}
+      .hero-copy{margin-top:56px;}
+      .search{flex-direction:column;border-radius:24px;}
+      .search input{border-radius:18px;}
+      .card{padding:24px 18px;gap:26px;}
+      .update-meta{text-align:left;}
+      .progress-step .label{font-size:10.5px;}
+      .progress-step .dot{width:18px;height:18px;}
+      .progress-track{top:8px;}
+      main{padding:40px 0 72px;}
+      .stages{grid-template-columns:1fr;}
     }
+    @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
   </style>
 </head>
 <body>
-  <div class="hero-panel">
-    <div class="container">
-      <header>
-        <div class="brand-mark">
-          <svg width="24" height="24" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 20L10.5 2H16.5L8 20H2Z" fill="currentColor"/><path d="M11.5 20L20 2H24L15.5 20H11.5Z" fill="currentColor" opacity="0.5"/></svg>
-          <span>506 logistics</span>
-        </div>
-        <h1>Rastrear pedido</h1>
-        <p>Consulta el estado de tu guía en tiempo real</p>
-      </header>
-    </div>
-  </div>
+  <section class="hero">
+    <div class="orb" aria-hidden="true"></div>
+    <svg class="hero-map" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+    <!-- Trama abstracta de calles: la ciudad donde se hace la última milla -->
+    <g fill="none" stroke="#9aa0cc" stroke-width="1" stroke-linecap="round">
+      <path d="M-20 140 C 300 120, 600 170, 900 130 S 1300 110, 1460 150"/>
+      <path d="M-20 330 C 260 300, 520 360, 760 320 S 1180 290, 1460 340"/>
+      <path d="M-20 520 C 320 500, 640 540, 980 505 S 1300 490, 1460 520"/>
+      <path d="M-20 700 C 380 690, 700 720, 1040 690 S 1320 680, 1460 700"/>
+      <path d="M120 -20 C 150 250, 90 520, 150 920"/>
+      <path d="M380 -20 C 400 300, 350 600, 400 920"/>
+      <path d="M1060 -20 C 1030 300, 1090 600, 1050 920"/>
+      <path d="M1310 -20 C 1290 280, 1340 580, 1300 920"/>
+      <path d="M-40 860 L 560 -40" opacity=".7"/>
+      <path d="M880 -40 L 1480 820" opacity=".7"/>
+    </g>
+    <g fill="#0a0e3a" stroke="#9aa0cc" stroke-width="1.2">
+      <circle cx="136" cy="132" r="2.8"/><circle cx="390" cy="318" r="2.8"/><circle cx="1062" cy="302" r="2.8"/>
+      <circle cx="1318" cy="512" r="2.8"/><circle cx="144" cy="705" r="2.8"/><circle cx="1045" cy="692" r="2.8"/>
+    </g>
+  </svg>
+    <div class="wrap">
+      <div class="nav-bar">
+        <a class="mark" id="brandLink" aria-label="506 Logistics">
+          <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M2 20L10.5 2H16.5L8 20H2Z" fill="currentColor"/><path d="M11.5 20L20 2H24L15.5 20H11.5Z" fill="currentColor" opacity="0.5"/></svg>
+          <b>506</b><span>logistics</span>
+        </a>
+        <a class="nav-cta" id="navCta" hidden>Evaluar mi operación</a>
+      </div>
 
-  <div class="container">
-    <div class="search-card">
-      <div class="search-form">
-        <input type="text" id="trackingInput" placeholder="Ingresa tu número de rastreo">
-        <button onclick="searchTracking()"><i class="fas fa-search"></i> Rastrear</button>
+      <div class="hero-copy">
+        <span class="eyebrow">Rastreo de guías</span>
+        <h1>Rastrea tu <span class="hl">pedido.</span></h1>
+        <p class="lead">Consulta el estado de tu guía en tiempo real, con la misma información que ve nuestro equipo.</p>
+        <form class="search" id="searchForm" role="search">
+          <label for="trackingInput" class="sr" hidden>Número de guía</label>
+          <input type="text" id="trackingInput" placeholder="Ingresa tu número de guía" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <button type="submit" class="btn btn--signal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            Rastrear
+          </button>
+        </form>
+        <p class="hint">El número de guía aparece en el correo o mensaje de confirmación de tu compra.</p>
       </div>
     </div>
+  </section>
 
-    <div class="loading" id="loading">
-      <div class="loading-spinner"></div>
-      <p>Buscando tu pedido...</p>
-    </div>
+  <main>
+    <div class="wrap">
+      <div class="loading" id="loading" role="status">
+        <div class="spinner"></div>
+        <p>Buscando tu pedido…</p>
+      </div>
 
-    <div class="error" id="error"><i class="fas fa-circle-exclamation"></i><span></span></div>
+      <div class="error" id="error" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg>
+        <span></span>
+      </div>
 
-    <div class="results" id="results">
-      <div class="tracking-info">
-        <div class="status-header">
-          <div>
-            <h2 id="trackingNumber"></h2>
-            <span class="status-badge" id="statusBadge"></span>
+      <div class="results" id="results" aria-live="polite">
+        <div class="card">
+          <div class="status-header">
+            <div>
+              <p class="k">Guía</p>
+              <h2 id="trackingNumber"></h2>
+              <span class="status-badge" id="statusBadge"></span>
+            </div>
+            <div class="update-meta">
+              <p class="k">Última actualización</p>
+              <p class="v" id="updatedAt"></p>
+            </div>
           </div>
-          <div class="update-meta">
-            <p class="k">Última actualización</p>
-            <p class="v" id="updatedAt"></p>
+
+          <div class="progress-stepper" id="progressStepper"></div>
+
+          <div class="tracking-grid">
+            <div class="info-card"><h3>Destinatario</h3><p id="recipientName">-</p></div>
+            <div class="info-card"><h3>Teléfono</h3><p id="recipientPhone">-</p></div>
+            <div class="info-card info-card--eta"><h3 id="estimatedDeliveryLabel">Entrega estimada</h3><p id="estimatedDelivery">-</p></div>
           </div>
-        </div>
 
-        <div class="progress-stepper" id="progressStepper"></div>
+          <div class="timeline" id="timelineSection" hidden>
+            <h3>Historial de eventos</h3>
+            <div id="timeline"></div>
+          </div>
 
-        <div class="tracking-grid">
-          <div class="info-card"><h3>Destinatario</h3><p id="recipientName">-</p></div>
-          <div class="info-card"><h3>Teléfono</h3><p id="recipientPhone">-</p></div>
-          <div class="info-card"><h3 id="estimatedDeliveryLabel">Entrega Estimada</h3><p id="estimatedDelivery">-</p></div>
-        </div>
-
-        <div class="timeline">
-          <h3><i class="fas fa-clock-rotate-left"></i> Historial de Eventos</h3>
-          <div id="timeline"></div>
-        </div>
-
-        <div class="qr-section" id="qrSection" style="display: none;">
-          <p style="font-weight: 600; color: var(--ink);">Comparte tu rastreo</p>
-          <img id="qrCode" src="" alt="QR Code">
-          <p>Escanea para compartir</p>
+          <div class="qr-section" id="qrSection" hidden>
+            <p class="t">Comparte tu rastreo</p>
+            <img id="qrCode" src="" alt="Código QR del rastreo">
+            <p>Escanéalo para abrir este rastreo en otro dispositivo</p>
+          </div>
         </div>
       </div>
+
+      <section class="guide" aria-labelledby="guideTitle">
+        <span class="eyebrow">Cómo leer tu rastreo</span>
+        <h2 id="guideTitle">Cinco etapas, de la orden a tu puerta.</h2>
+        <div class="stages">
+          <div class="stage"><h3>Orden creada</h3><p>Recibimos tu pedido en nuestro sistema.</p></div>
+          <div class="stage"><h3>En proceso</h3><p>Estamos preparando tu pedido para el despacho.</p></div>
+          <div class="stage"><h3>Asignado para distribución</h3><p>Tu pedido ya tiene vehículo y ruta asignados.</p></div>
+          <div class="stage"><h3>En camino</h3><p>El repartidor va en ruta hacia tu dirección.</p></div>
+          <div class="stage"><h3>Entregado</h3><p>Tu pedido llegó y quedó registrada la prueba de entrega.</p></div>
+        </div>
+      </section>
     </div>
-  </div>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <span class="mark">
+        <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M2 20L10.5 2H16.5L8 20H2Z" fill="currentColor"/><path d="M11.5 20L20 2H24L15.5 20H11.5Z" fill="currentColor" opacity="0.5"/></svg>
+        <b>506</b><span>logistics</span>
+      </span>
+      <ul>
+        <li>+57 324 320 0671</li>
+        <li>comercial@506-logistics.com</li>
+        <li>© 2026 506 Logistics S.A.S</li>
+      </ul>
+    </div>
+  </footer>
 
   <script>
+    // Cuando el sitio corporativo tenga dominio, pon aquí su URL (ej. 'https://506-logistics.com').
+    // Con esto el logo lleva al sitio y aparece el botón "Evaluar mi operación".
+    const SITE_URL = 'https://506logistics.co';
+
     const API_URL = window.location.origin;
+    const ICON_ALERT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg>';
+
+    if (SITE_URL) {
+      document.getElementById('brandLink').href = SITE_URL;
+      const cta = document.getElementById('navCta');
+      cta.href = SITE_URL.replace(/\/$/, '') + '/asesor.html';
+      cta.hidden = false;
+    }
 
     async function searchTracking(id = null) {
-      id = id || document.getElementById('trackingInput').value.trim();
-      if (!id) { showError('Por favor ingresa un número'); return; }
+      id = (id || document.getElementById('trackingInput').value).trim();
+      hideError();
+      if (!id) { showError('Ingresa un número de guía para buscar.'); return; }
 
+      document.getElementById('results').classList.remove('active');
       showLoading(true);
       try {
-        const endpoint = id.startsWith('TRA-') ? `${API_URL}/api/tracking/public/${id}` : `${API_URL}/api/tracking/${id}`;
+        const endpoint = id.startsWith('TRA-') ? `${API_URL}/api/tracking/public/${encodeURIComponent(id)}` : `${API_URL}/api/tracking/${encodeURIComponent(id)}`;
         const response = await fetch(endpoint);
-        if (!response.ok) throw new Error(response.status === 404 ? 'Pedido no encontrado' : `Error ${response.status}`);
+        if (!response.ok) throw new Error(response.status === 404 ? 'No encontramos un pedido con ese número. Revisa la guía e intenta de nuevo.' : `No pudimos consultar el pedido (error ${response.status}). Intenta de nuevo en unos minutos.`);
         const data = await response.json();
         displayTracking(data);
       } catch (error) {
-        showError(error.message);
+        showError(error.message === 'Failed to fetch' ? 'No hay conexión con el servidor. Revisa tu internet e intenta de nuevo.' : error.message);
       } finally {
         showLoading(false);
       }
     }
 
     function displayTracking(data) {
-      document.getElementById('trackingNumber').textContent = `Rastreo: ${data.tracking_id}`;
+      document.getElementById('trackingNumber').textContent = data.tracking_id;
       const badge = document.getElementById('statusBadge');
       badge.textContent = data.status;
-      badge.className = `status-badge status-${data.status.toLowerCase().replace(/ /g, '-')}`;
+      badge.className = `status-badge status-${String(data.status || '').toLowerCase().replace(/ /g, '-')}`;
 
       const date = new Date(data.updated_at);
-      document.getElementById('updatedAt').textContent = date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      document.getElementById('updatedAt').textContent = isNaN(date) ? '-' : date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' });
 
       document.getElementById('recipientName').textContent = data.recipient_name || '-';
       document.getElementById('recipientPhone').textContent = data.recipient_phone || '-';
-      document.getElementById('estimatedDeliveryLabel').textContent = data.estimated_delivery_label || 'Entrega Estimada';
+      document.getElementById('estimatedDeliveryLabel').textContent = data.estimated_delivery_label || 'Entrega estimada';
       document.getElementById('estimatedDelivery').textContent = data.estimated_delivery_display || '-';
 
       renderProgress(data.progress);
-      if (data.events?.length) displayTimeline(data.events);
+
+      const timelineSection = document.getElementById('timelineSection');
+      if (data.events?.length) {
+        displayTimeline(data.events);
+        timelineSection.hidden = false;
+      } else {
+        timelineSection.hidden = true;
+      }
 
       const url = window.location.href;
       if (url.includes('/rastreo/')) {
         document.getElementById('qrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
-        document.getElementById('qrSection').style.display = 'block';
+        document.getElementById('qrSection').hidden = false;
       }
 
       document.getElementById('results').classList.add('active');
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function renderProgress(progress) {
       const container = document.getElementById('progressStepper');
       if (!progress || !Array.isArray(progress.stages) || !progress.stages.length) {
-        container.style.display = 'none';
+        container.hidden = true;
         return;
       }
-      container.style.display = 'block';
+      container.hidden = false;
 
       if (progress.state === 'cancelled') {
-        container.innerHTML = `<div class="progress-cancelled"><i class="fas fa-circle-exclamation"></i> Este pedido no sigue el flujo normal de entrega</div>`;
+        container.innerHTML = `<div class="progress-cancelled">${ICON_ALERT} Este pedido no sigue el flujo normal de entrega</div>`;
         return;
       }
 
       const total = progress.stages.length;
       const idx = Math.max(0, progress.current_index);
+      const half = 50 / total; // la línea va del centro del primer punto al centro del último
       const fillPct = total > 1 ? (idx / (total - 1)) * 100 : 0;
 
       const stepsHtml = progress.stages.map((label, i) => {
@@ -263,22 +383,32 @@
       }).join('');
 
       container.innerHTML = `
-        <div class="progress-track"><div class="progress-track-fill" style="width:${fillPct}%"></div></div>
-        <div class="progress-steps">${stepsHtml}</div>
-      `;
+        <div class="progress-steps" role="img" aria-label="Etapa ${idx + 1} de ${total}: ${progress.stages[idx]}">
+          <div class="progress-track" style="left:${half}%;right:${half}%"><div class="progress-track-fill" style="width:${fillPct}%"></div></div>
+          ${stepsHtml}
+        </div>`;
     }
 
     function displayTimeline(events) {
       document.getElementById('timeline').innerHTML = events.map(e => {
-        const date = new Date(e.timestamp).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const date = new Date(e.timestamp).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' });
         return `<div class="timeline-event"><div class="timeline-dot"></div><div class="timeline-content"><h4>${e.status}</h4><span class="time">${date}</span>${e.description ? `<p>${e.description}</p>` : ''}</div></div>`;
       }).join('');
     }
 
     function showLoading(show) { document.getElementById('loading').classList.toggle('active', show); }
     function showError(msg) { const e = document.getElementById('error'); e.querySelector('span').textContent = msg; e.classList.add('active'); }
+    function hideError() { document.getElementById('error').classList.remove('active'); }
 
-    document.getElementById('trackingInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') searchTracking(); });
+    document.getElementById('searchForm').addEventListener('submit', e => { e.preventDefault(); searchTracking(); });
+
+    // Abrir directo con /rastreo/XXXX (enlace compartido) o ?guia=XXXX (buscador del sitio corporativo)
+    const pathMatch = window.location.pathname.match(/\/rastreo\/([^/?#]+)/);
+    const initialId = (pathMatch && decodeURIComponent(pathMatch[1])) || new URLSearchParams(window.location.search).get('guia');
+    if (initialId) {
+      document.getElementById('trackingInput').value = initialId;
+      searchTracking(initialId);
+    }
   </script>
 </body>
 </html>
