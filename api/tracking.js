@@ -272,6 +272,41 @@ function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
   return { label: 'Entrega Estimada', display: `Entre el ${fromLabel} y el ${toLabel}` };
 }
 
+// ============================================================================
+// BARRA DE PROGRESO
+// Reduce cualquier estado de Velocity a un punto dentro de una línea de
+// tiempo fija de 5 etapas, para dibujar un stepper/barra de progreso en la
+// página de rastreo. Cada etapa agrupa uno o más estados crudos de Velocity
+// (en minúsculas) que caen en esa etapa.
+// ============================================================================
+const PROGRESS_STAGES = [
+  { label: 'Orden creada', matches: ['orden creada', 'asignar piloto', 'pendiente'] },
+  { label: 'En proceso', matches: ['confirmado', 'asignado a piloto', 'asignado piloto'] },
+  { label: 'Asignado para distribución', matches: ['recoger'] },
+  { label: 'En camino', matches: ['en camino', 'en ruta', 'en tránsito'] },
+  { label: 'Entregado', matches: ['entregado'] }
+];
+
+function buildProgress(statusKeyLower) {
+  const stages = PROGRESS_STAGES.map(s => s.label);
+
+  if (statusKeyLower === 'cancelado' || statusKeyLower === 'devuelto') {
+    return { stages, current_index: -1, state: 'cancelled' };
+  }
+
+  const idx = PROGRESS_STAGES.findIndex(s => s.matches.includes(statusKeyLower));
+  if (statusKeyLower === 'fallido') {
+    // Novedad en la entrega: se muestra el avance hasta la última etapa
+    // conocida (normalmente "En camino"), marcado como incidencia.
+    return { stages, current_index: idx >= 0 ? idx : stages.length - 2, state: 'issue' };
+  }
+  if (idx === -1) {
+    // Estado no mapeado todavía: se asume la primera etapa por defecto.
+    return { stages, current_index: 0, state: 'normal' };
+  }
+  return { stages, current_index: idx, state: 'normal' };
+}
+
 function transformVelocityGoResponse(data, trackingId) {
   // Velocity devuelve el estado como objeto { id, name, color }, no como string plano
   const statusObj = data.order_status || {};
@@ -297,6 +332,8 @@ function transformVelocityGoResponse(data, trackingId) {
     createdAt: data.created_at
   });
 
+  const progress = buildProgress(statusKeyLower);
+
   return {
     tracking_id: trackingId,
     velocitygo_order_id: data.id || data.order_id,
@@ -317,6 +354,7 @@ function transformVelocityGoResponse(data, trackingId) {
     // Se conserva el crudo de Velocity solo como referencia/depuración; ya no
     // se muestra directamente en la página de rastreo.
     estimated_delivery_raw: data.delivery_date || data.estimated_delivery_date || data.estimated_delivery,
+    progress,
     events,
     // El destinatario (a quién se le entrega) vive en shipping_information;
     // customer es quien hizo/pagó el pedido. Se usa shipping primero y
