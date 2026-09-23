@@ -122,7 +122,8 @@ const STATUS_LABELS = {
   'entregado': 'Entregado',
   'fallido': 'Novedad en la entrega',
   'cancelado': 'Cancelado',
-  'devuelto': 'Devuelto'
+  'devuelto': 'Devuelto',
+  'devolución': 'Devuelto'
   // Agrega aquí más pares "nombre en minúsculas de Velocity": "Texto para mostrar"
 };
 
@@ -130,6 +131,13 @@ function publicStatusLabel(rawName) {
   if (!rawName) return 'Desconocido';
   const key = rawName.trim().toLowerCase();
   return STATUS_LABELS[key] || rawName;
+}
+
+// Velocity puede enviar "Devuelto" o "Devolución" según el flujo — ambas
+// cuentan como el mismo estado final de devolución.
+const RETURNED_KEYS = ['devuelto', 'devolución'];
+function isReturnedStatus(statusKeyLower) {
+  return RETURNED_KEYS.includes(statusKeyLower);
 }
 
 // ============================================================================
@@ -232,7 +240,7 @@ function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
   if (statusKeyLower === 'cancelado') {
     return { label: 'Estado', display: 'Pedido cancelado' };
   }
-  if (statusKeyLower === 'devuelto') {
+  if (isReturnedStatus(statusKeyLower)) {
     return { label: 'Estado', display: 'Pedido devuelto' };
   }
   if (statusKeyLower === 'fallido') {
@@ -305,7 +313,7 @@ const PROGRESS_STAGES = [
 function buildProgress(statusKeyLower) {
   const baseStages = PROGRESS_STAGES.map(s => s.label);
 
-  if (statusKeyLower === 'devuelto') {
+  if (isReturnedStatus(statusKeyLower)) {
     // La devolución reemplaza la última etapa ("Entregado") en vez de
     // mostrar el aviso genérico: el pedido sí completó el recorrido, solo
     // que terminó en devolución.
