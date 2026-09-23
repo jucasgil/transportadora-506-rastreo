@@ -87,6 +87,8 @@
     .progress-step.done .dot { background: var(--blue); border-color: var(--blue); }
     .progress-step.current .dot { background: var(--lime); border-color: var(--lime); box-shadow: 0 0 0 4px rgba(242,233,78,.35); }
     .progress-step.issue .dot { background: #e0574c; border-color: #e0574c; box-shadow: 0 0 0 4px rgba(224,87,76,.2); }
+    .progress-step.returned .dot { background: #e0894c; border-color: #e0894c; box-shadow: 0 0 0 4px rgba(224,137,76,.2); }
+    .progress-step.returned .label { color: #b0602f; }
     .progress-step .label { font-size: 11.5px; font-weight: 600; color: var(--slate); line-height: 1.3; }
     .progress-step.done .label, .progress-step.current .label { color: var(--ink); }
     .progress-cancelled { display: flex; align-items: center; gap: 10px; background: #fdeceb; color: #b03a30; border-radius: var(--r-sm); padding: 14px 18px; font-weight: 700; font-size: 14.5px; }
@@ -252,7 +254,11 @@
       const stepsHtml = progress.stages.map((label, i) => {
         let cls = 'progress-step';
         if (i < idx) cls += ' done';
-        else if (i === idx) cls += progress.state === 'issue' ? ' issue' : ' current';
+        else if (i === idx) {
+          if (progress.state === 'issue') cls += ' issue';
+          else if (progress.state === 'returned') cls += ' returned';
+          else cls += ' current';
+        }
         return `<div class="${cls}"><div class="dot"></div><span class="label">${label}</span></div>`;
       }).join('');
 
