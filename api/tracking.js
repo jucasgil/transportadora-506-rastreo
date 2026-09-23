@@ -170,6 +170,14 @@ const STATUS_DELIVERY_RULES = {
 };
 const DEFAULT_RULE = { type: 'range', minDays: 2, maxDays: 5 };
 
+// Vercel corre el backend en UTC, pero el negocio (y los usuarios) están en
+// Bogotá. Sin fijar esta zona explícitamente, toLocaleDateString usa UTC por
+// defecto: un evento que ocurre de noche en Colombia (ej. 8pm COT = 1am UTC
+// del día siguiente) se formateaba con la fecha de MAÑANA en vez de HOY. Por
+// eso toda fecha que se muestra o se compara con "hoy" pasa por estas dos
+// funciones, que fuerzan la zona horaria de Bogotá.
+const TZ = 'America/Bogota';
+
 function addDays(isoDate, days) {
   const d = new Date(isoDate);
   d.setDate(d.getDate() + days);
@@ -180,7 +188,7 @@ function formatDateEs(isoDate, opts) {
   if (!isoDate) return null;
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('es-CO', opts || { day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString('es-CO', { timeZone: TZ, ...(opts || { day: 'numeric', month: 'long', year: 'numeric' }) });
 }
 
 function findEventTimestamp(events, statusKeyLower) {
@@ -191,10 +199,18 @@ function findEventTimestamp(events, statusKeyLower) {
   return matches[matches.length - 1].timestamp;
 }
 
-function startOfDay(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+// 'YYYY-MM-DD' de una fecha/instante, calculado en hora de Bogotá (no UTC).
+// Comparar estos strings da el mismo orden que comparar las fechas.
+function ymdInTZ(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date(date));
+  const map = {};
+  parts.forEach(p => { if (p.type !== 'literal') map[p.type] = p.value; });
+  return `${map.year}-${map.month}-${map.day}`;
 }
 
 // Si el pedido se quedó más tiempo del previsto en un estado (ej. lleva 3
@@ -202,8 +218,7 @@ function startOfDay(date) {
 // la creación cae en el pasado. Nunca se debe prometer una fecha ya vencida:
 // se sube al menos a hoy.
 function clampToToday(date) {
-  const today = startOfDay(new Date());
-  return startOfDay(date) < today ? new Date() : date;
+  return ymdInTZ(date) < ymdInTZ(new Date()) ? new Date() : date;
 }
 
 function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
@@ -254,21 +269,21 @@ function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
   // rule.type === 'range'
   let from = addDays(createdAt, rule.minDays);
   let to = addDays(createdAt, rule.maxDays);
-  const today = startOfDay(new Date());
+  const todayYmd = ymdInTZ(new Date());
 
-  if (startOfDay(to) < today) {
+  if (ymdInTZ(to) < todayYmd) {
     // Todo el rango ya venció (el pedido lleva más días de los previstos en
     // esta etapa): se muestra un solo día, hoy, en vez de un rango pasado.
     return { label: 'Entrega Estimada', display: formatDateEs(new Date()) };
   }
-  if (startOfDay(from) < today) {
+  if (ymdInTZ(from) < todayYmd) {
     // El inicio del rango ya pasó pero el final todavía no: se recorta el
     // rango para que empiece hoy.
     from = new Date();
   }
 
-  const fromLabel = from.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-  const toLabel = to.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+  const fromLabel = formatDateEs(from, { day: 'numeric', month: 'short' });
+  const toLabel = formatDateEs(to);
   return { label: 'Entrega Estimada', display: `Entre el ${fromLabel} y el ${toLabel}` };
 }
 
@@ -288,12 +303,20 @@ const PROGRESS_STAGES = [
 ];
 
 function buildProgress(statusKeyLower) {
-  const stages = PROGRESS_STAGES.map(s => s.label);
+  const baseStages = PROGRESS_STAGES.map(s => s.label);
 
-  if (statusKeyLower === 'cancelado' || statusKeyLower === 'devuelto') {
-    return { stages, current_index: -1, state: 'cancelled' };
+  if (statusKeyLower === 'devuelto') {
+    // La devolución reemplaza la última etapa ("Entregado") en vez de
+    // mostrar el aviso genérico: el pedido sí completó el recorrido, solo
+    // que terminó en devolución.
+    const stages = [...baseStages.slice(0, -1), 'Devolución'];
+    return { stages, current_index: stages.length - 1, state: 'returned' };
+  }
+  if (statusKeyLower === 'cancelado') {
+    return { stages: baseStages, current_index: -1, state: 'cancelled' };
   }
 
+  const stages = baseStages;
   const idx = PROGRESS_STAGES.findIndex(s => s.matches.includes(statusKeyLower));
   if (statusKeyLower === 'fallido') {
     // Novedad en la entrega: se muestra el avance hasta la última etapa
