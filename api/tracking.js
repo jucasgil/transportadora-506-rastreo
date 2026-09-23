@@ -518,30 +518,54 @@ const SEARCH_FIELDS = ['order_number', 'external_order_id'];
 const OPERATORS = ['=', 'LIKE'];
 
 async function fetchVelocityGoOrder(client, trackingId) {
+  let data = null;
+
   try {
     const direct = await client.get(`/orders/${trackingId}`);
-    if (direct.data) return direct.data;
+    if (direct.data) data = direct.data;
   } catch (err) {
     if (!isNotFoundResponse(err)) throw err;
   }
 
-  // Candidatos a probar: el valor tal cual, y si trae un sufijo tipo "-01"
-  // (típico de VTEX cuando una orden se separa en varios fulfillments),
-  // también la parte antes del guion, por si Velocity la guarda sin sufijo.
-  const candidates = [trackingId];
-  if (trackingId.includes('-')) {
-    candidates.push(trackingId.split('-')[0]);
-  }
-
-  for (const field of SEARCH_FIELDS) {
-    for (const candidate of candidates) {
-      for (const operator of OPERATORS) {
-        const found = await searchOrderByField(client, field, candidate, operator);
-        if (found) return found;
+  if (!data) {
+    // Candidatos a probar: el valor tal cual, y si trae un sufijo tipo "-01"
+    // (típico de VTEX cuando una orden se separa en varios fulfillments),
+    // también la parte antes del guion, por si Velocity la guarda sin sufijo.
+    const candidates = [trackingId];
+    if (trackingId.includes('-')) {
+      candidates.push(trackingId.split('-')[0]);
+    }
+    outer:
+    for (const field of SEARCH_FIELDS) {
+      for (const candidate of candidates) {
+        for (const operator of OPERATORS) {
+          const found = await searchOrderByField(client, field, candidate, operator);
+          if (found) { data = found; break outer; }
+        }
       }
     }
   }
-  return null;
+
+  // [DIAGNÓSTICO HISTORIAL] `GET /orders/{id}` trae el campo `history` en
+  // null para todos los pedidos probados. Se intenta un endpoint separado
+  // (patrón REST común) por si Velocity expone el historial ahí en vez de
+  // incluirlo en la orden. Es solo para depurar — si falla, no rompe nada,
+  // el pedido se sigue mostrando igual, solo sin historial.
+  if (data && !data.history) {
+    try {
+      const historyRes = await client.get(`/orders/${data.id}/history`);
+      console.log('[HISTORY ENDPOINT TRY] /orders/{id}/history ->', JSON.stringify(historyRes.data).slice(0, 800));
+      if (Array.isArray(historyRes.data)) {
+        data.history = historyRes.data;
+      } else if (Array.isArray(historyRes.data?.data)) {
+        data.history = historyRes.data.data;
+      }
+    } catch (err) {
+      console.log('[HISTORY ENDPOINT TRY] /orders/{id}/history falló:', err.response?.status, err.response?.data?.message || err.message);
+    }
+  }
+
+  return data;
 }
 
 // ============================================================================
