@@ -354,6 +354,17 @@ function transformVelocityGoResponse(data, trackingId) {
   const shipping = data.shipping_information || data.location || {};
   const customer = data.customer || {};
 
+  // [DIAGNÓSTICO HISTORIAL] El historial de eventos sale vacío en todos los
+  // pedidos — puede ser que Velocity no envíe `history`, o que use otro
+  // nombre de campo (events, status_history, logs, tracking_history, etc.).
+  // Este log muestra todas las llaves del objeto que llega, y el contenido
+  // de `history` si existe, para confirmarlo en los logs de Vercel.
+  console.log('[HISTORY DEBUG]', JSON.stringify({
+    order_number: data.order_number,
+    all_keys: Object.keys(data),
+    history_value: data.history
+  }));
+
   const events = Array.isArray(data.history) ? data.history.map(e => ({
     timestamp: e.timestamp || e.created_at || e.date,
     status: publicStatusLabel(e.status || e.name),
