@@ -229,6 +229,25 @@ function clampToToday(date) {
   return ymdInTZ(date) < ymdInTZ(new Date()) ? new Date() : date;
 }
 
+// Rango "Entre el X y el Y" anclado a `anchorDate` (+minDays a +maxDays),
+// recortado para nunca mostrar un día que ya pasó.
+function rangeEstimateDisplay(anchorDate, minDays, maxDays) {
+  let from = addDays(anchorDate, minDays);
+  let to = addDays(anchorDate, maxDays);
+  const todayYmd = ymdInTZ(new Date());
+
+  if (ymdInTZ(to) < todayYmd) {
+    return formatDateEs(new Date());
+  }
+  if (ymdInTZ(from) < todayYmd) {
+    from = new Date();
+  }
+
+  const fromLabel = formatDateEs(from, { day: 'numeric', month: 'short' });
+  const toLabel = formatDateEs(to);
+  return `Entre el ${fromLabel} y el ${toLabel}`;
+}
+
 function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
   if (statusKeyLower === 'entregado') {
     const deliveredAt = findEventTimestamp(events, 'entregado');
@@ -241,7 +260,10 @@ function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
     return { label: 'Estado', display: 'Pedido cancelado' };
   }
   if (isReturnedStatus(statusKeyLower)) {
-    return { label: 'Estado', display: 'Pedido devuelto' };
+    // La devolución sí tiene una ventana estimada propia: 1-2 días desde que
+    // el pedido entró a este estado (no desde la creación).
+    const changedAt = findEventTimestamp(events, statusKeyLower) || new Date().toISOString();
+    return { label: 'Devolución Estimada', display: rangeEstimateDisplay(changedAt, 1, 2) };
   }
   if (statusKeyLower === 'fallido') {
     return { label: 'Estado', display: 'Novedad en la entrega' };
@@ -275,24 +297,7 @@ function buildDeliveryEstimate({ statusKeyLower, events, createdAt }) {
   }
 
   // rule.type === 'range'
-  let from = addDays(createdAt, rule.minDays);
-  let to = addDays(createdAt, rule.maxDays);
-  const todayYmd = ymdInTZ(new Date());
-
-  if (ymdInTZ(to) < todayYmd) {
-    // Todo el rango ya venció (el pedido lleva más días de los previstos en
-    // esta etapa): se muestra un solo día, hoy, en vez de un rango pasado.
-    return { label: 'Entrega Estimada', display: formatDateEs(new Date()) };
-  }
-  if (ymdInTZ(from) < todayYmd) {
-    // El inicio del rango ya pasó pero el final todavía no: se recorta el
-    // rango para que empiece hoy.
-    from = new Date();
-  }
-
-  const fromLabel = formatDateEs(from, { day: 'numeric', month: 'short' });
-  const toLabel = formatDateEs(to);
-  return { label: 'Entrega Estimada', display: `Entre el ${fromLabel} y el ${toLabel}` };
+  return { label: 'Entrega Estimada', display: rangeEstimateDisplay(createdAt, rule.minDays, rule.maxDays) };
 }
 
 // ============================================================================
