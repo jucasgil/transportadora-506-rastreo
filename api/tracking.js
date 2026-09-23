@@ -170,7 +170,7 @@ const STATUS_DELIVERY_RULES = {
   'asignar piloto': { type: 'event_offset', days: 3 },
   'asignado a piloto': { type: 'event_offset', days: 1 },
   'asignado piloto': { type: 'event_offset', days: 1 },
-  'recoger': { type: 'event' },
+  'recoger': { type: 'event_offset', days: 1 },
   'confirmado': { type: 'range', minDays: 2, maxDays: 4 },
   'en camino': { type: 'event' },
   'en ruta': { type: 'event' },
@@ -354,17 +354,6 @@ function transformVelocityGoResponse(data, trackingId) {
   const shipping = data.shipping_information || data.location || {};
   const customer = data.customer || {};
 
-  // [DIAGNÓSTICO HISTORIAL] El historial de eventos sale vacío en todos los
-  // pedidos — puede ser que Velocity no envíe `history`, o que use otro
-  // nombre de campo (events, status_history, logs, tracking_history, etc.).
-  // Este log muestra todas las llaves del objeto que llega, y el contenido
-  // de `history` si existe, para confirmarlo en los logs de Vercel.
-  console.log('[HISTORY DEBUG]', JSON.stringify({
-    order_number: data.order_number,
-    all_keys: Object.keys(data),
-    history_value: data.history
-  }));
-
   const events = Array.isArray(data.history) ? data.history.map(e => ({
     timestamp: e.timestamp || e.created_at || e.date,
     status: publicStatusLabel(e.status || e.name),
@@ -546,24 +535,11 @@ async function fetchVelocityGoOrder(client, trackingId) {
     }
   }
 
-  // [DIAGNÓSTICO HISTORIAL] `GET /orders/{id}` trae el campo `history` en
-  // null para todos los pedidos probados. Se intenta un endpoint separado
-  // (patrón REST común) por si Velocity expone el historial ahí en vez de
-  // incluirlo en la orden. Es solo para depurar — si falla, no rompe nada,
-  // el pedido se sigue mostrando igual, solo sin historial.
-  if (data && !data.history) {
-    try {
-      const historyRes = await client.get(`/orders/${data.id}/history`);
-      console.log('[HISTORY ENDPOINT TRY] /orders/{id}/history ->', JSON.stringify(historyRes.data).slice(0, 800));
-      if (Array.isArray(historyRes.data)) {
-        data.history = historyRes.data;
-      } else if (Array.isArray(historyRes.data?.data)) {
-        data.history = historyRes.data.data;
-      }
-    } catch (err) {
-      console.log('[HISTORY ENDPOINT TRY] /orders/{id}/history falló:', err.response?.status, err.response?.data?.message || err.message);
-    }
-  }
+  // NOTA: `GET /orders/{id}` trae el campo `history` en null para todos los
+  // pedidos probados, y `/orders/{id}/history` no existe (404) — Velocity no
+  // expone el historial de estados por esta API pública. Habría que pedirle
+  // a su soporte el endpoint correcto (o resignarse a no tener esa sección).
+  // Mientras tanto `events` en la respuesta simplemente queda vacío.
 
   return data;
 }
