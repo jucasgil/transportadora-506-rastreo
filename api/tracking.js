@@ -165,13 +165,13 @@ function isReturnedStatus(statusKeyLower) {
 //   - 'range':        rango de días desde la creación (min-max), para
 //                      estados sin regla explícita todavía
 const STATUS_DELIVERY_RULES = {
-  'orden creada': { type: 'offset', days: 3 },
-  'pendiente': { type: 'offset', days: 3 },
-  'asignar piloto': { type: 'event_offset', days: 3 },
-  'asignado a piloto': { type: 'event_offset', days: 1 },
-  'asignado piloto': { type: 'event_offset', days: 1 },
+  'orden creada': { type: 'range', minDays: 8, maxDays: 9 },
+  'pendiente': { type: 'range', minDays: 8, maxDays: 9 },
+  'asignar piloto': { type: 'range', minDays: 8, maxDays: 9 },
+  'asignado a piloto': { type: 'event_offset', days: 2 },
+  'asignado piloto': { type: 'event_offset', days: 2 },
   'recoger': { type: 'event_offset', days: 1 },
-  'confirmado': { type: 'range', minDays: 2, maxDays: 4 },
+  'confirmado': { type: 'range', minDays: 8, maxDays: 9 },
   'en camino': { type: 'event' },
   'en ruta': { type: 'event' },
   'en tránsito': { type: 'event' }
